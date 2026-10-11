@@ -1,16 +1,16 @@
 // Shared UI state and pieces used by every page: the league, saving,
 // team labels and logos, game cards, and the game editor.
 
-import { saveLeague } from './store.js?v=20261009223448';
-import { logoFor } from './logos.js?v=20261009223448';
-import { LOGO_ALIASES } from './data.js?v=20261009223448';
-import { ovr, winProbability } from './sim.js?v=20261009223448';
-import { records, isFinal, winnerOf } from './standings.js?v=20261009223448';
-import { latestPoll, pollRankMap } from './polls.js?v=20261009223448';
-import { afterChange, applyResult, clearResult, simResult, deleteGame, weekName, estimateHE } from './league.js?v=20261009223448';
-import { regWeeksOf, shownSeed, mcwsVenue } from './postseason.js?v=20261009223448';
-import { DAY_ORDER } from './schedule.js?v=20261009223448';
-import { esc } from './util.js?v=20261009223448';
+import { saveLeague } from './store.js?v=20261011013831';
+import { logoFor } from './logos.js?v=20261011013831';
+import { LOGO_ALIASES } from './data.js?v=20261011013831';
+import { ovr, winProbability } from './sim.js?v=20261011013831';
+import { records, isFinal, winnerOf } from './standings.js?v=20261011013831';
+import { latestPoll, pollRankMap } from './polls.js?v=20261011013831';
+import { afterChange, applyResult, clearResult, simResult, deleteGame, weekName, estimateHE } from './league.js?v=20261011013831';
+import { regWeeksOf, shownSeed, mcwsVenue } from './postseason.js?v=20261011013831';
+import { DAY_ORDER } from './schedule.js?v=20261011013831';
+import { esc } from './util.js?v=20261011013831';
 
 export { esc };
 export const ctx = { league: null, render: () => {} };
@@ -198,7 +198,7 @@ export function gameCard(g) {
 }
 
 // ---------- series tally ----------
-// Weekend series (and the WCWS Championship Series): where it stands after
+// Weekend series (and the National Championships Championship Series): where it stands after
 // this game, or going into it if it hasn't been played.
 function seriesKey(g) {
   if (g.series) return g.series;

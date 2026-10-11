@@ -1,9 +1,9 @@
 // Records page: the dynasty's record book.
 
-import { ctx, app, $$, esc, team } from './ui.js?v=20261009223448';
-import { recordBook, top, pollRecords } from './records.js?v=20261009223448';
-import { coachName, weekName } from './league.js?v=20261009223448';
-import { fmtPct } from './util.js?v=20261009223448';
+import { ctx, app, $$, esc, team } from './ui.js?v=20261011013831';
+import { recordBook, top, pollRecords } from './records.js?v=20261011013831';
+import { coachName, weekName } from './league.js?v=20261011013831';
+import { fmtPct } from './util.js?v=20261011013831';
 
 const ui = { programSort: 'w', pollSort: 'ranked' };
 
@@ -15,7 +15,7 @@ const POLL_COLS = [
 
 const PROGRAM_COLS = [
   ['seasons', 'Seasons'], ['w', 'Wins'], ['pct', 'Pct'], ['reg', 'Reg. season titles'], ['conf', 'Tournament titles'],
-  ['ncaa', 'NCAA'], ['mcws', 'WCWS'], ['titles', 'National titles'],
+  ['ncaa', 'NCAA'], ['mcws', 'Nat. Championships'], ['titles', 'National titles'],
 ];
 
 export function renderRecords() {
@@ -76,7 +76,7 @@ export function renderRecords() {
     ${board('Career wins', top(C, c => c.w), c => c.w, csub)}
     ${board('Career winning percentage', top(C.filter(c => c.w + c.l >= 100), c => c.w / (c.w + c.l)), c => fmtPct(c.w / (c.w + c.l)), csub)}
     ${board('National titles', top(C.filter(c => c.titles), c => c.titles + c.w / 1e5), c => c.titles, csub)}
-    ${board('WCWS appearances', top(C.filter(c => c.mcws), c => c.mcws + c.w / 1e5), c => c.mcws, csub)}
+    ${board('National Championship appearances', top(C.filter(c => c.mcws), c => c.mcws + c.w / 1e5), c => c.mcws, csub)}
   </div>`;
 
   // Poll records.

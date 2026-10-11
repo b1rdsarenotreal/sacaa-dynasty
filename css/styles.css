@@ -569,3 +569,8 @@ th.sortable.sorted { color: var(--accent); }
 .venue-city { font-size: 13px; opacity: .8; }
 .meta .venue { font-weight: 600; }
 .venue-line { margin-top: -4px; }
+
+/* Deep link to a bracket (team history → Postseason) */
+[id^="ev-"] { scroll-margin-top: 140px; }
+.card.flash { animation: ev-flash 1.8s ease-out; }
+@keyframes ev-flash { 0%, 30% { box-shadow: 0 0 0 3px var(--accent, #e8e04a); } 100% { box-shadow: none; } }

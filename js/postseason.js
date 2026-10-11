@@ -5,17 +5,17 @@
 //     series; 3 to 6 = double elimination with an "if necessary" final;
 //     4 uses the classic NCAA regional format),
 //   - super regionals (best of three between two regional champions) when
-//     there are twice as many regionals as Women's College World Series spots,
-//   - the WCWS: 4 teams (double elimination to two, then a best-of-three
+//     there are twice as many regionals as National Championships spots,
+//   - the National Championships: 4 teams (double elimination to two, then a best-of-three
 //     Championship Series) or 8 teams (Bracket A and Bracket B, each a
 //     4-team double elimination, then a best-of-three final between the
 //     bracket winners).
 // The format is locked into the season when the field is announced.
 
-import { blankGame, DAY_ORDER } from './schedule.js?v=20261009223448';
-import { records, rpi, confStandings, conferences, isFinal, winnerOf, loserOf, regularSeasonDone, regSeasonChamp } from './standings.js?v=20261009223448';
-import { latestPoll, pollRankMap, generatePoll } from './polls.js?v=20261009223448';
-import { hashStr } from './util.js?v=20261009223448';
+import { blankGame, DAY_ORDER } from './schedule.js?v=20261011013831';
+import { records, rpi, confStandings, conferences, isFinal, winnerOf, loserOf, regularSeasonDone, regSeasonChamp } from './standings.js?v=20261011013831';
+import { latestPoll, pollRankMap, generatePoll } from './polls.js?v=20261011013831';
+import { hashStr } from './util.js?v=20261011013831';
 
 // ---------- tournament format ----------
 
@@ -39,8 +39,8 @@ export function shownSeed(season, team) {
 // Problems with a format, in plain words (empty when it works).
 export function ncaaProblems(cfg, teamCount) {
   const out = [];
-  if (![4, 8].includes(cfg.wsSize)) out.push("The Women's College World Series must have 4 or 8 teams.");
-  if (cfg.regionals !== cfg.wsSize && cfg.regionals !== cfg.wsSize * 2) out.push(`With a ${cfg.wsSize}-team WCWS there must be ${cfg.wsSize} regionals (winners go straight to the WCWS) or ${cfg.wsSize * 2} (winners meet in super regionals).`);
+  if (![4, 8].includes(cfg.wsSize)) out.push("The National Championships must have 4 or 8 teams.");
+  if (cfg.regionals !== cfg.wsSize && cfg.regionals !== cfg.wsSize * 2) out.push(`With a ${cfg.wsSize}-team National Championships there must be ${cfg.wsSize} regionals (winners go straight to the National Championships) or ${cfg.wsSize * 2} (winners meet in super regionals).`);
   if (!(cfg.perRegional >= 2 && cfg.perRegional <= 6)) out.push('Each regional needs 2 to 6 teams.');
   if (fieldSize(cfg) > teamCount) out.push(`That's ${fieldSize(cfg)} qualifiers, but there are only ${teamCount} teams.`);
   return out;
@@ -50,7 +50,7 @@ export function ncaaProblems(cfg, teamCount) {
 export function formatSummary(cfg) {
   const reg = cfg.perRegional === 2 ? 'best-of-three series' : cfg.perRegional === 4 ? '4-team double elimination' : `${cfg.perRegional}-team double elimination`;
   const sup = hasSupers(cfg) ? ` Regional champions pair off in ${cfg.regionals / 2} best-of-three super regionals.` : '';
-  const ws = cfg.wsSize === 8 ? '8-team WCWS in Bracket A and Bracket B, then a best-of-three final' : '4-team WCWS, double elimination to two, then a best-of-three final';
+  const ws = cfg.wsSize === 8 ? '8-team National Championships in Bracket A and Bracket B, then a best-of-three final' : '4-team National Championships, double elimination to two, then a best-of-three final';
   return `<b>Format:</b> ${fieldSize(cfg)} qualifiers in ${cfg.regionals} regionals of ${cfg.perRegional} (${reg}).${sup} ${ws}.`;
 }
 
@@ -266,10 +266,10 @@ function doubleElim(final = 'g7') {
   return n;
 }
 
-// One WCWS bracket (Bracket A or B): the 4-team NCAA double elimination,
+// One National Championships bracket (Bracket A or B): the 4-team NCAA double elimination,
 // shifted a day for Bracket B so the two brackets alternate.
-// WCWS days (both brackets play the same days): opening games Friday, Game 4
-// Saturday, Games 3 and 5 Sunday, bracket finals Monday. In a 4-team WCWS
+// National Championships days (both brackets play the same days): opening games Friday, Game 4
+// Saturday, Games 3 and 5 Sunday, bracket finals Monday. In a 4-team National Championships
 // the Championship Series follows on Monday, Tuesday and Wednesday.
 const WS_DAYS = { G1: ['Fri', 1], G2: ['Fri', 1.1], G4: ['Sat', 2], G3: ['Sun', 3], G5: ['Sun', 3.1], G6: ['Mon', 4], G7: ['Mon', 4.1], F1: ['Mon', 4], F2: ['Tue', 5], F3: ['Wed', 6] };
 function wsDays(nodes) {
@@ -284,7 +284,7 @@ function wsBracketNodes() {
   }
   return n;
 }
-// WCWS events built by older versions: move games not yet played to these days.
+// National Championships events built by older versions: move games not yet played to these days.
 function fixWsDays(season, ev) {
   for (const n of ev.nodes) {
     const want = WS_DAYS[n.key];
@@ -512,7 +512,7 @@ export function reseedConfTourney(season, conf, seeds) {
   ev.champion = null;
 }
 
-// Where the WCWS is played. Every WCWS game is at this neutral site.
+// Where the National Championships is played. Every National Championships game is at this neutral site.
 export const DEFAULT_WCWS_VENUE = { stadium: 'Devon Park', city: 'Oklahoma City, Oklahoma' };
 export function mcwsVenue(season) {
   const st = season?.settings || {};
@@ -680,7 +680,7 @@ function buildSupers(season) {
   });
 }
 
-// Teams reaching the WCWS, in bracket-path order (path k = national seed k+1's side).
+// Teams reaching the National Championships, in bracket-path order (path k = national seed k+1's side).
 function wsQualifiers(season) {
   const p = season.post, cfg = ncaaConfig(season);
   const stage = hasSupers(cfg) ? p.supers : p.regionals;
@@ -688,7 +688,7 @@ function wsQualifiers(season) {
   return stage.map((ev, i) => [ev.path ?? i, ev.champion]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
 }
 
-// 8-team WCWS brackets: Bracket A holds paths 1, 4, 5, 8 (games 1 vs 8 and
+// 8-team National Championships brackets: Bracket A holds paths 1, 4, 5, 8 (games 1 vs 8 and
 // 4 vs 5); Bracket B holds paths 2, 3, 6, 7 (2 vs 7 and 3 vs 6).
 function buildWsBrackets(q) {
   return [
@@ -699,7 +699,7 @@ function buildWsBrackets(q) {
 
 // ---------- driver ----------
 
-// Keep a stage (super regionals, the WCWS, its finals) in step with the
+// Keep a stage (super regionals, the National Championships, its finals) in step with the
 // stage before it. `sig` names the teams that should be in it, or is null
 // while the earlier stage is unfinished. A stage whose teams no longer match
 // is rebuilt, unless it already has results (the commissioner's call).
@@ -742,7 +742,7 @@ export function progress(season) {
   }
 
   const q = wsQualifiers(season);
-  const wsName = season.settings.mcwsName || "Women's College World Series";
+  const wsName = season.settings.mcwsName || "National Championships";
   if (cfg.wsSize === 8) {
     syncStage(season, 'mcwsBrackets', q ? q.join('|') : null, () => buildWsBrackets(q));
     for (const ev of p.mcwsBrackets || []) fixWsDays(season, ev);
@@ -768,7 +768,7 @@ export function progress(season) {
   if (!champ && season.polls.final) delete season.polls.final;
 }
 
-// Teams in the WCWS (either format).
+// Teams in the National Championships (either format).
 export function wsTeams(season) {
   const p = season.post || {};
   return p.mcws?.seeds || (p.mcwsBrackets || []).flatMap(ev => ev.seeds);
@@ -787,9 +787,9 @@ export function postseasonBonus(season) {
 }
 
 // How far each team got (for team pages and history).
-// Final WCWS places for a finished season: { team: { place, tied } }.
+// Final National Championships places for a finished season: { team: { place, tied } }.
 // Champion 1st, runner-up 2nd; everyone else by the round they went out in
-// (teams knocked out in the same round tie, e.g. T-3rd in an 8-team WCWS).
+// (teams knocked out in the same round tie, e.g. T-3rd in an 8-team National Championships).
 const ELIM_ROUND = { G6: 3, G7: 3, G5: 2, G3: 1 };
 export function mcwsPlaces(season) {
   const p = season.post || {}, out = {};
@@ -811,8 +811,8 @@ export function mcwsPlaces(season) {
   }
   return out;
 }
-// A team's WCWS history before `year`: appearances, last one, best finish
-// (and the years it came), and wins and losses in WCWS games.
+// A team's National Championships history before `year`: appearances, last one, best finish
+// (and the years it came), and wins and losses in National Championships games.
 export function mcwsHistory(league, team, year) {
   const h = { apps: 0, last: null, best: null, bestYears: [], w: 0, l: 0 };
   for (const [y, se] of Object.entries(league.seasons).map(([y, se]) => [Number(y), se]).sort((a, b) => a[0] - b[0])) {
@@ -830,12 +830,59 @@ export function mcwsHistory(league, team, year) {
 export function postseasonFinish(season, team) {
   const p = season.post || {};
   if (p.champion === team) return 'National champion';
-  if (p.runnerUp === team) return 'WCWS runner-up';
-  if (wsTeams(season).includes(team)) return 'Men\'s College World Series';
+  if (p.runnerUp === team) return 'National runner-up';
+  if (wsTeams(season).includes(team)) return 'National Championships';
   if (p.supers?.some(ev => ev.seeds.includes(team))) return 'Super Regional';
   const reg = p.regionals?.find(ev => ev.seeds.includes(team));
   if (reg) return reg.champion === team ? 'Regional champion' : 'NCAA Regional';
   return null;
+}
+
+// Where a team's postseason ended, for team and coach histories:
+// { text, tab, ev } where tab/ev point at the bracket on the Postseason page.
+// "UCLA Regional · out in Game 5", "Oregon Super Regional · lost series 1-2".
+export function postseasonDetail(season, team) {
+  const p = season.post || {};
+  const finish = postseasonFinish(season, team);
+  if (!finish) return null;
+  const gamesIn = ev => season.games.filter(g => g.event === ev.id && (g.home === team || g.away === team) && isFinal(g));
+  const lastLoss = evs => {
+    const gs = evs.flatMap(ev => gamesIn(ev).map(g => ({ g, ev }))).filter(x => loserOf(x.g) === team);
+    gs.sort((a, b) => a.g.week - b.g.week || a.g.order - b.g.order || a.g.id - b.g.id);
+    return gs[gs.length - 1] || null;
+  };
+  const roundOf = x => (nodeOf(x.ev, x.g.node)?.label || '').replace(/ \(.*\)$/, '');
+  const seriesScore = ev => { const gs = gamesIn(ev); const w = gs.filter(g => winnerOf(g) === team).length; return `${w}-${gs.length - w}`; };
+  const wsEvents = [...(p.mcwsBrackets || []), ...(p.mcwsFinals ? [p.mcwsFinals] : []), ...(p.mcws ? [p.mcws] : [])];
+  const wsName = season.settings?.mcwsName || 'National Championships';
+  if (finish === 'National champion') return { text: 'National champion', tab: 'mcws', ev: null };
+  if (finish === 'National runner-up') {
+    const fin = p.mcwsFinals || p.mcws;
+    return { text: `National runner-up${fin ? ` · lost Championship Series ${seriesScoreFinals(season, fin, team)}` : ''}`, tab: 'mcws', ev: null };
+  }
+  if (finish === 'National Championships') {
+    // Short of the final, double elimination: out after a second loss.
+    const bracketEvs = wsEvents.filter(ev => ev.kind !== 'series');
+    const losses = bracketEvs.flatMap(ev => gamesIn(ev).filter(g => loserOf(g) === team && !/^F\d/.test(g.node || '')));
+    const x = losses.length >= 2 ? lastLoss(bracketEvs) : null;
+    const where = x && x.ev.bracket ? `${x.ev.name}, ` : '';
+    return { text: `${wsName}${x ? ` · out in ${where}${roundOf(x)}` : ''}`, tab: 'mcws', ev: null };
+  }
+  if (finish === 'Super Regional') {
+    const ev = p.supers.find(e => e.seeds.includes(team));
+    return { text: `${ev.name}${ev.champion && ev.champion !== team ? ` · lost series ${seriesScore(ev)}` : ''}`, tab: 'supers', ev: ev.id };
+  }
+  const ev = p.regionals.find(e => e.seeds.includes(team));
+  if (ev.champion === team) return { text: `${ev.name} champion`, tab: 'regionals', ev: ev.id };
+  if (!ev.champion) return { text: ev.name, tab: 'regionals', ev: ev.id };
+  if (ev.kind === 'series') return { text: `${ev.name} · lost series ${seriesScore(ev)}`, tab: 'regionals', ev: ev.id };
+  const x = lastLoss([ev]);
+  return { text: `${ev.name}${x ? ` · out in ${roundOf(x)}` : ''}`, tab: 'regionals', ev: ev.id };
+}
+function seriesScoreFinals(season, ev, team) {
+  const gs = season.games.filter(g => g.event === ev.id && isFinal(g) && (g.home === team || g.away === team) && (ev.kind === 'series' || /^F\d/.test(g.node || '')));
+  const w = gs.filter(g => winnerOf(g) === team).length;
+  return `${w}-${gs.length - w}`;
 }
 
 export function allEvents(season) {

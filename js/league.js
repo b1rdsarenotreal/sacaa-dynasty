@@ -1,20 +1,20 @@
 // League (dynasty) lifecycle: creating the league, saving results,
 // simulating, adding teams and conferences, and rolling into new seasons.
 
-import { START_YEAR, CONFERENCES, COACHES, seedTeams, makeTeam } from './data.js?v=20261009223448';
-import { generateSchedule, blankGame, DAY_ORDER, DEFAULT_REG_WEEKS, confWeeksFor } from './schedule.js?v=20261009223448';
-import { simulateGame, estimateHitsErrors } from './sim.js?v=20261009223448';
-import { generatePoll, releaseDuePolls } from './polls.js?v=20261009223448';
-import { replayRatings, ensureBase } from './ratings.js?v=20261009223448';
-import { progress, lockField, postWeeks, allEvents, regWeeksOf, DEFAULT_NCAA, pickConfHosts, postseasonFinish } from './postseason.js?v=20261009223448';
-import { isFinal, records } from './standings.js?v=20261009223448';
-import { rng, normal, clamp, hashStr } from './util.js?v=20261009223448';
+import { START_YEAR, CONFERENCES, COACHES, seedTeams, makeTeam } from './data.js?v=20261011013831';
+import { generateSchedule, blankGame, DAY_ORDER, DEFAULT_REG_WEEKS, confWeeksFor } from './schedule.js?v=20261011013831';
+import { simulateGame, estimateHitsErrors } from './sim.js?v=20261011013831';
+import { generatePoll, releaseDuePolls } from './polls.js?v=20261011013831';
+import { replayRatings, ensureBase } from './ratings.js?v=20261011013831';
+import { progress, lockField, postWeeks, allEvents, regWeeksOf, DEFAULT_NCAA, pickConfHosts, postseasonFinish } from './postseason.js?v=20261011013831';
+import { isFinal, records } from './standings.js?v=20261011013831';
+import { rng, normal, clamp, hashStr } from './util.js?v=20261011013831';
 
 export const SCHEMA_VERSION = 4;
 
 export function defaultSettings() {
   return {
-    volatility: 1, runRule: true, tiebreaker: true, confTourney: {}, confFormat: {}, mcwsName: "Women's College World Series", mcwsVenue: 'Devon Park', mcwsCity: 'Oklahoma City, Oklahoma', development: 'normal', form: 'normal',
+    volatility: 1, runRule: true, tiebreaker: true, confTourney: {}, confFormat: {}, mcwsName: "National Championships", mcwsVenue: 'Devon Park', mcwsCity: 'Oklahoma City, Oklahoma', development: 'normal', form: 'normal',
     regWeeks: DEFAULT_REG_WEEKS, midweek: 'mixed', midweekStart: 4, midweekSkipLast: true, ncaa: { ...DEFAULT_NCAA },
   };
 }
@@ -259,7 +259,7 @@ export function rebuildSchedule(season, prev = null) {
 // near the top (graduation pulls everyone toward 70), plus some luck. The points are spread across OFF, PIT and DEF automatically, and
 // the commissioner can move them around (or overrule them) in the Offseason.
 const DEV_LUCK = { none: 0, small: 3, normal: 5, big: 8 };
-const FINISH_BONUS = { 'National champion': 4.5, 'WCWS runner-up': 3.5, "Women's College World Series": 3, 'Super Regional': 2, 'Regional champion': 2, 'NCAA Regional': 1.5 };
+const FINISH_BONUS = { 'National champion': 4.5, 'National runner-up': 3.5, 'National Championships': 3, 'Super Regional': 2, 'Regional champion': 2, 'NCAA Regional': 1.5 };
 export const RATING_KEYS = ['off', 'pit', 'def'];
 export function devPoints(team, season, r, level = 'normal', avgO = 70) {
   if (level === 'none') return 0;
@@ -391,9 +391,9 @@ export function seasonWeeks(season) {
 export function weekName(w, season) {
   if (season) {
     const W = postWeeks(season);
-    const names = { [W.conf]: 'Conf. Tournaments', [W.regional]: 'Regionals', [W.mcws]: 'WCWS' };
+    const names = { [W.conf]: 'Conf. Tournaments', [W.regional]: 'Regionals', [W.mcws]: 'National Championships' };
     if (W.super) names[W.super] = 'Super Regionals';
-    if (W.finals) names[W.finals] = 'WCWS Finals';
+    if (W.finals) names[W.finals] = 'Championship Finals';
     if (names[w]) return names[w];
   }
   return `Week ${w}`;
@@ -405,6 +405,10 @@ export const isRegularWeek = (w, season) => w <= regWeeksOf(season);
 // midweek format and NCAA tournament format as settings (v4).
 export function migrateLeague(league) {
   sortConferences(league);
+  // The championship used to be called the Women's (or Men's) College World Series.
+  for (const se of Object.values(league.seasons || {})) {
+    if (/College World Series/.test(se.settings?.mcwsName || '')) se.settings.mcwsName = 'National Championships';
+  }
   const v = league.schema || 1;
   if (v >= SCHEMA_VERSION) return league;
   if (v < 4) {

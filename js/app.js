@@ -1,17 +1,17 @@
 // App shell: loading the dynasty, the top bar, and page routing.
 
-import { loadLeague, saveLeague } from './store.js?v=20261009223448';
-import { loadLogoTable } from './logos.js?v=20261009223448';
-import { newLeague, afterChange, migrateLeague } from './league.js?v=20261009223448';
-import { ctx, app, cache, persist, esc } from './ui.js?v=20261009223448';
-import { renderHome, renderSchedule, renderStandings, renderRankings, renderPostseason, resetSeasonUi } from './views-season.js?v=20261009223448';
-import { renderRecords } from './views-records.js?v=20261009223448';
-import { renderTeams, renderTeamPage, renderConferences, renderConferencePage, renderHistory, renderSettings, renderOffseason, renderCoaches, renderCoachPage } from './views-league.js?v=20261009223448';
+import { loadLeague, saveLeague } from './store.js?v=20261011013831';
+import { loadLogoTable } from './logos.js?v=20261011013831';
+import { newLeague, afterChange, migrateLeague } from './league.js?v=20261011013831';
+import { ctx, app, cache, persist, esc } from './ui.js?v=20261011013831';
+import { renderHome, renderSchedule, renderStandings, renderRankings, renderPostseason, resetSeasonUi } from './views-season.js?v=20261011013831';
+import { renderRecords } from './views-records.js?v=20261011013831';
+import { renderTeams, renderTeamPage, renderConferences, renderConferencePage, renderHistory, renderSettings, renderOffseason, renderCoaches, renderCoachPage } from './views-league.js?v=20261011013831';
 
 const VIEWS = { home: 'Home', schedule: 'Schedule', standings: 'Standings', rankings: 'Rankings', postseason: 'Postseason', offseason: 'Offseason', teams: 'Teams', coaches: 'Coaches', conferences: 'Conferences', history: 'History', records: 'Records', settings: 'Settings' };
 const SUBVIEWS = { team: 'teams', conference: 'conferences', coach: 'coaches' };
 const RENDER = {
-  home: renderHome, schedule: renderSchedule, standings: renderStandings, rankings: renderRankings, postseason: renderPostseason,
+  home: renderHome, schedule: renderSchedule, standings: renderStandings, rankings: renderRankings, postseason: () => renderPostseason(routeArg()),
   offseason: renderOffseason, teams: renderTeams, coaches: renderCoaches, conferences: renderConferences, history: renderHistory, records: renderRecords, settings: renderSettings,
   team: () => renderTeamPage(routeArg()), coach: () => renderCoachPage(routeArg()), conference: () => renderConferencePage(routeArg()),
 };

@@ -498,4 +498,25 @@ runFormat({ regionals: 16, perRegional: 2, wsSize: 8 }, se => {
     }
   }
 }
+// Team histories: where each NCAA team's season ended
+{ const { postseasonDetail } = await import('../js/postseason.js');
+  const Ld = newLeague(), sd = Ld.seasons[Ld.currentYear];
+  simGames(sd, undefined, { autoLock: true });
+  const ds = sd.post.field.map(f => [f.team, postseasonDetail(sd, f.team)]);
+  for (const [t, d] of ds) {
+    assert.ok(d && d.text && d.tab, `${t} has a postseason detail`);
+    if (d.tab === 'regionals') {
+      const ev = sd.post.regionals.find(e => e.id === d.ev);
+      assert.ok(ev.seeds.includes(t) && d.text.startsWith(ev.name), `${t}: ${d.text}`);
+      if (ev.champion !== t) assert.match(d.text, / · (out in (Game \d|Regional final)|lost series \d-\d)$/, d.text);
+    }
+  }
+  assert.equal(ds.filter(([, d]) => d.text === 'National champion').length, 1);
+  assert.equal(ds.filter(([, d]) => d.text.startsWith('National runner-up')).length, 1);
+  assert.ok(ds.filter(([, d]) => d.tab === 'mcws').length === wsTeams(sd).length, 'every National Championships team links there');
+  console.log('history example:', ds.find(([, d]) => d.tab === 'regionals' && d.text.includes('out in'))?.[1].text);
+  // Saves from before the rename pick up the new name
+  const old = JSON.parse(JSON.stringify(Ld)); old.seasons[old.currentYear].settings.mcwsName = "Women's College World Series";
+  const { migrateLeague } = await import('../js/league.js');
+  migrateLeague(old); assert.equal(old.seasons[old.currentYear].settings.mcwsName, 'National Championships'); }
 console.log(`ok in ${Date.now() - t0} ms`);
