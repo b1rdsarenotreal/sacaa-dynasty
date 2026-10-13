@@ -6,9 +6,9 @@
 // fielding moves DEF. Because it's a replay, edited or cleared results
 // always give consistent ratings.
 
-import { winProbability, OVR_WEIGHTS } from './sim.js?v=20261011013831';
-import { isFinal } from './standings.js?v=20261011013831';
-import { clamp } from './util.js?v=20261011013831';
+import { winProbability, OVR_WEIGHTS } from './sim.js?v=20261012174250';
+import { isFinal } from './standings.js?v=20261012174250';
+import { clamp } from './util.js?v=20261012174250';
 
 export const FORM_LEVELS = { none: 0, small: 0.45, normal: 0.8, big: 1.2 };
 const KEYS = ['off', 'pit', 'def'];
