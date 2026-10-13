@@ -1,14 +1,14 @@
 // Season pages: home, schedule, standings, rankings and postseason.
 
-import { ctx, S, app, modal, $, $$, esc, toast, changed, persist, cache, team, teamOptions, teamNames, confLogo, confHref, confColor, confInfo, gameCard, compactCard, placeholderCard, bindGameCards, openGame, resultText, DAY_NAMES, readableOn, teamInfo, logoImg } from './ui.js?v=20261012191136';
-import { isFinal, records, rpi, confStandings, conferences, regSeasonChamp, regSeasonChamps, TIEBREAKERS, quadrants } from './standings.js?v=20261012191136';
-import { latestPoll, generatePoll, pollRankMap, pollSizeOf, VOTER_PANEL, voterStyle } from './polls.js?v=20261012191136';
-import { ovr } from './sim.js?v=20261012191136';
-import { simGames, addGame, weekName } from './league.js?v=20261012191136';
-import { CONF_FORMATS, confFormatName, confKind } from './postseason.js?v=20261012191136';
-import { mcwsVenue, postWeeks, regWeeksOf, ncaaConfig, hasSupers, fieldSize, wsTeams, formatSummary, shownSeed, postseasonBonus, defaultConfTourneySize, confTourneySeeds, reseedConfTourney, proposeField, lockField, pods, nodeTeams, nodeNeeded, runnerUp, committeeOrder, autoBids, refLabel, setConfFormat, ensureLayout, confHost, setConfHost, mcwsHistory, selectionBoard, setAtLarge, confirmField, unconfirmField, bracketology, BRACKETOLOGY_FROM_WEEK } from './postseason.js?v=20261012191136';
-import { fmtPct, hashStr } from './util.js?v=20261012191136';
-import { DAY_ORDER } from './schedule.js?v=20261012191136';
+import { ctx, S, app, modal, $, $$, esc, toast, changed, persist, cache, team, teamOptions, teamNames, confLogo, confHref, confColor, confInfo, gameCard, compactCard, placeholderCard, bindGameCards, openGame, resultText, DAY_NAMES, readableOn, teamInfo, logoImg } from './ui.js?v=20261012203346';
+import { isFinal, winnerOf, records, rpi, confStandings, conferences, regSeasonChamp, regSeasonChamps, TIEBREAKERS, quadrants } from './standings.js?v=20261012203346';
+import { latestPoll, generatePoll, pollRankMap, pollSizeOf, VOTER_PANEL, voterStyle } from './polls.js?v=20261012203346';
+import { ovr } from './sim.js?v=20261012203346';
+import { simGames, addGame, weekName } from './league.js?v=20261012203346';
+import { CONF_FORMATS, confFormatName, confKind } from './postseason.js?v=20261012203346';
+import { mcwsVenue, postWeeks, regWeeksOf, ncaaConfig, hasSupers, fieldSize, wsTeams, formatSummary, shownSeed, postseasonBonus, defaultConfTourneySize, confTourneySeeds, reseedConfTourney, proposeField, lockField, pods, nodeTeams, nodeNeeded, runnerUp, committeeOrder, autoBids, refLabel, setConfFormat, ensureLayout, confHost, setConfHost, mcwsHistory, selectionBoard, setAtLarge, confirmField, unconfirmField, bracketology, BRACKETOLOGY_FROM_WEEK } from './postseason.js?v=20261012203346';
+import { fmtPct, hashStr } from './util.js?v=20261012203346';
+import { DAY_ORDER } from './schedule.js?v=20261012203346';
 
 const ui = { week: null, schedFilter: 'all', pollWeek: null, rankTab: 'poll', postTab: null, editPoll: null, voter: null };
 export function resetSeasonUi() { ui.week = null; ui.pollWeek = null; ui.postTab = null; ui.editPoll = null; }
@@ -42,7 +42,7 @@ export function renderHome() {
   });
   app.innerHTML = `
     <div class="section-head"><h1>${s.year} Season</h1><span class="muted">${PHASE_TEXT[s.phase]}${nx ? ` · next: ${weekName(nx.week, s)}, ${DAY_NAMES[nx.day] || nx.day}` : ''}</span></div>
-    ${champ ? `<div class="banner" style="background:linear-gradient(120deg, ${esc(ct.color)}, #15171c)"><span class="trophy">🏆</span><div><div class="small" style="opacity:.8">${s.year} National Champion</div><div class="big">${esc(champ)}</div><div class="small" style="opacity:.8">Beat ${esc(s.post.runnerUp)} in the ${esc(s.settings.mcwsName)} Championship Series · ${recs[champ].w}-${recs[champ].l}</div></div></div><div style="height:16px"></div>` : ''}
+    ${champ ? `<div class="banner" style="background:linear-gradient(120deg, ${esc(ct.color)}, #0f2540)"><span class="trophy">🏆</span><div><div class="small" style="opacity:.8">${s.year} National Champion</div><div class="big">${esc(champ)}</div><div class="small" style="opacity:.8">Beat ${esc(s.post.runnerUp)} in the ${esc(s.settings.mcwsName)} Championship Series · ${recs[champ].w}-${recs[champ].l}</div></div></div><div style="height:16px"></div>` : ''}
     <div class="kpis">
       <div class="kpi"><div class="v">${done}<span class="muted" style="font-size:16px"> / ${total}</span></div><div class="l">Games final</div></div>
       <div class="kpi"><div class="v">${poll?.ranks[0] ? team(poll.ranks[0].team, { rank: false, size: 22 }) : '—'}</div><div class="l">No. 1 ${poll ? (poll.week === 'final' ? '(final poll)' : poll.week === 0 ? '(preseason)' : `(week ${poll.week} poll)`) : ''}</div></div>
@@ -50,7 +50,7 @@ export function renderHome() {
       <div class="kpi"><div class="v">${PHASE_TEXT[s.phase]}</div><div class="l">Phase</div></div>
     </div>
     ${nx ? `<div class="card"><div class="row"><div><h2 style="margin:0">Up next: ${weekName(nx.week, s)} · ${DAY_NAMES[nx.day] || nx.day}</h2>
-      <div class="muted small">${s.games.filter(g => g.week === nx.week && g.day === nx.day && !isFinal(g)).length} games that day</div></div><span class="spacer"></span>
+      <div class="muted small">${(n => `${n} game${n === 1 ? '' : 's'}`)(s.games.filter(g => g.week === nx.week && g.day === nx.day && !isFinal(g)).length)} that day</div></div><span class="spacer"></span>
       <a class="btn" href="#/schedule">Open schedule</a>
       <button class="btn" id="h-day">🎲 Sim next day</button>
       <button class="btn primary" id="h-week">🎲 Sim ${weekName(nx.week, s)}</button></div></div>`
@@ -64,11 +64,20 @@ export function renderHome() {
         <table><tbody>${leaders.map(({ c, top }) => `<tr><td style="width:30px"><a href="${confHref(c)}">${confLogo(c, 22)}</a></td><td>${top ? team(top.team) : '—'}</td><td class="num muted">${top ? `${top.cw}-${top.cl}` : ''}</td></tr>`).join('')}</tbody></table>
         <p class="small"><a href="#/standings">Standings →</a></p></div>
       <div class="card"><h2>Latest results</h2>
-        ${recent.length ? `<table><tbody>${recent.map(g => `<tr class="clickable" data-open="${g.id}"><td class="small muted" style="width:70px">${esc(weekName(g.week, s).replace('Week ', 'Wk '))} ${esc(g.day)}</td><td>${esc(resultText(g))}</td></tr>`).join('')}</tbody></table>` : '<p class="muted">No games played yet.</p>'}</div>
+        ${recent.length ? `<div class="mini-scores">${recent.map(g => miniScore(g, s)).join('')}</div>` : '<p class="muted">No games played yet.</p>'}</div>
     </div>`;
   $$('[data-open]').forEach(r => (r.onclick = () => openGame(Number(r.dataset.open))));
   if ($('#h-day')) $('#h-day').onclick = () => simAndReport(g => g.week === nx.week && g.day === nx.day, `on ${DAY_NAMES[nx.day] || nx.day}`);
   if ($('#h-week')) $('#h-week').onclick = () => simAndReport(g => g.week === nx.week, `in ${weekName(nx.week, s)}`);
+}
+
+// One finished game as a compact scoreboard row: logos, abbreviations,
+// runs, with the winner in bold.
+function miniScore(g, s) {
+  const w = winnerOf(g);
+  const side = (t, r) => { const info = teamInfo(t); return `<span class="ms-team ${w === t ? 'is-win' : ''}">${logoImg(info, 20)}<span class="ms-abbr" title="${esc(t)}">${esc(info?.abbr || t)}</span><b class="ms-r">${r}</b></span>`; };
+  const inn = Math.max(g.homeLine.length, g.awayLine.length);
+  return `<button type="button" class="mini-score" data-open="${g.id}" title="${esc(resultText(g))}">${side(g.away, g.awayR)}${side(g.home, g.homeR)}<span class="ms-when">${esc(weekName(g.week, s).replace('Week ', 'Wk '))} ${esc(g.day)}${inn !== 7 ? ` · F/${inn}` : ''}</span></button>`;
 }
 
 // ---------- Schedule ----------
@@ -523,7 +532,7 @@ function renderPostseasonPage() {
   app.innerHTML = `
     <div class="section-head"><h1>${s.year} Postseason</h1><span class="muted">${PHASE_TEXT[s.phase]}</span><span class="spacer"></span>
       ${s.phase !== 'complete' && s.phase !== 'regular' ? '<button class="btn" id="ps-all">🎲 Sim rest of postseason</button>' : ''}</div>
-    ${p.champion ? `<div class="banner" style="background:linear-gradient(120deg, ${esc(teamInfo(p.champion).color)}, #15171c)"><span class="trophy">🏆</span><div><div class="small" style="opacity:.8">${s.year} National Champion</div><div class="big">${esc(p.champion)}</div><div class="small" style="opacity:.8">Runner-up: ${esc(p.runnerUp)}</div></div></div><div style="height:16px"></div>` : ''}
+    ${p.champion ? `<div class="banner" style="background:linear-gradient(120deg, ${esc(teamInfo(p.champion).color)}, #0f2540)"><span class="trophy">🏆</span><div><div class="small" style="opacity:.8">${s.year} National Champion</div><div class="big">${esc(p.champion)}</div><div class="small" style="opacity:.8">Runner-up: ${esc(p.runnerUp)}</div></div></div><div style="height:16px"></div>` : ''}
     <div class="steps">${Object.entries(tabs).map(([k, l]) => `<a href="#/postseason" data-pt="${k}" class="${ui.postTab === k ? 'active' : ''}">${esc(l)}</a>`).join('')}</div>
     <div id="ps"></div>`;
   $$('[data-pt]').forEach(a => (a.onclick = e => { e.preventDefault(); ui.postTab = a.dataset.pt; renderPostseasonPage(); }));
