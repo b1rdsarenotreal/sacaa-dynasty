@@ -573,4 +573,19 @@ runFormat({ regionals: 16, perRegional: 2, wsSize: 8 }, se => {
   assert.ok(hs.every(x => x.reasons.length || x.cool.length), 'every entry says why');
   assert.ok(!hs.some(x => x.school === sh.post.champion && x.level !== 'warm'), 'the national champion is safe');
   for (const x of hs) assert.equal(sh.teams[x.school].coachId, x.coachId); }
+// Added voters: random personality, vote from the next poll, carry into
+// later seasons, can be removed.
+{ const { addRandomVoter, removeVoter, votersOf, VOTER_PANEL } = await import('../js/polls.js');
+  const Lv = newLeague(), sv = Lv.seasons[Lv.currentYear];
+  const v1 = addRandomVoter(sv), v2 = addRandomVoter(sv);
+  assert.equal(votersOf(sv).length, VOTER_PANEL.length + 2);
+  assert.ok(v1.id !== v2.id && v1.name !== v2.name && v1.style && v1.outlet, 'each added voter is a new person');
+  simGames(sv, g => g.week === 1);
+  assert.ok(sv.polls[1].ballots[v1.id] && sv.polls[1].voters === VOTER_PANEL.length + 2, 'added voters vote in the next poll');
+  assert.ok(!sv.polls[0].ballots[v1.id], 'polls already out keep their ballots');
+  removeVoter(sv, v2.id);
+  assert.equal(votersOf(sv).length, VOTER_PANEL.length + 1);
+  simGames(sv, undefined, { autoLock: true });
+  beginOffseason(Lv); const nv = startNextSeason(Lv);
+  assert.ok(votersOf(nv).some(v => v.id === v1.id), 'added voters stay on the panel next season'); }
 console.log(`ok in ${Date.now() - t0} ms`);
