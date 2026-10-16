@@ -19,7 +19,7 @@
 // teams that played fewer weekend games getting a few more so season totals
 // stay close together.
 
-import { rng, shuffle, hashStr } from './util.js?v=20261015171955';
+import { rng, shuffle, hashStr } from './util.js?v=20261015173114';
 
 export const DEFAULT_REG_WEEKS = 12;
 export const DEFAULT_MIDWEEK_START = 4;
