@@ -1,17 +1,17 @@
 // League pages: teams, team profiles, conferences, history, settings.
 
-import { ctx, S, app, modal, $, $$, esc, toast, changed, persist, flushSave, cache, team, teamInfo, logoImg, teamOptions, teamHref, confLogo, confHref, confInfo, confColor, imageFileToDataUrl, readableOn, openGame, resultText } from './ui.js?v=20261015222525';
-import { isFinal, winnerOf, records, rpi, confStandings, regSeasonChamp, regSeasonChamps } from './standings.js?v=20261015222525';
-import { ovr } from './sim.js?v=20261015222525';
-import { latestPoll, pollRankMap, pollSizeOf, POLL_SIZES, DEFAULT_POLL_SIZE } from './polls.js?v=20261015222525';
-import { addTeam, removeTeam, renameTeam, addConference, renameConference, deleteConference, rebuildSchedule, startNextSeason, weekName, newLeague, beginOffseason, draftRemoveTeam, draftRestoreTeam, draftWarnings, coachName, coachSchool, hireCoach, newCoach, availableCoaches, backfillHitsErrors, placeRemaining, clearPoints, pointsLeft, migrateLeague } from './league.js?v=20261015222525';
-import { hotSeat, HEAT } from './hotseat.js?v=20261015222525';
-import { setRating } from './ratings.js?v=20261015222525';
-import { confFormatName, postseasonFinish, postseasonDetail, wsTeams, postWeeks, regWeeksOf, ncaaConfig, ncaaProblems, fieldSize, hasSupers, formatSummary, proposeField, DEFAULT_NCAA } from './postseason.js?v=20261015222525';
-import { MIDWEEK, MIDWEEK_FREQ, DEFAULT_TOURNEY_WEEKS, DEFAULT_REG_WEEKS } from './schedule.js?v=20261015222525';
-import { exportLeague, clearLeague } from './store.js?v=20261015222525';
-import { clamp, fmtPct } from './util.js?v=20261015222525';
-import { recordBook, teamPollHistory, headToHead } from './records.js?v=20261015222525';
+import { ctx, S, app, modal, $, $$, esc, toast, changed, persist, flushSave, cache, team, teamInfo, logoImg, teamOptions, teamHref, confLogo, confHref, confInfo, confColor, imageFileToDataUrl, readableOn, openGame, resultText } from './ui.js?v=20261016214007';
+import { isFinal, winnerOf, records, rpi, confStandings, regSeasonChamp, regSeasonChamps } from './standings.js?v=20261016214007';
+import { ovr } from './sim.js?v=20261016214007';
+import { latestPoll, pollRankMap, pollSizeOf, POLL_SIZES, DEFAULT_POLL_SIZE } from './polls.js?v=20261016214007';
+import { addTeam, removeTeam, renameTeam, addConference, renameConference, deleteConference, rebuildSchedule, startNextSeason, weekName, newLeague, beginOffseason, draftRemoveTeam, draftRestoreTeam, draftWarnings, coachName, coachSchool, hireCoach, newCoach, availableCoaches, backfillHitsErrors, placeRemaining, clearPoints, pointsLeft, migrateLeague } from './league.js?v=20261016214007';
+import { hotSeat, HEAT } from './hotseat.js?v=20261016214007';
+import { setRating } from './ratings.js?v=20261016214007';
+import { confFormatName, postseasonFinish, postseasonDetail, wsTeams, postWeeks, regWeeksOf, ncaaConfig, ncaaProblems, fieldSize, hasSupers, formatSummary, proposeField, DEFAULT_NCAA } from './postseason.js?v=20261016214007';
+import { MIDWEEK, MIDWEEK_FREQ, DEFAULT_TOURNEY_WEEKS, DEFAULT_REG_WEEKS } from './schedule.js?v=20261016214007';
+import { exportLeague, clearLeague } from './store.js?v=20261016214007';
+import { clamp, fmtPct } from './util.js?v=20261016214007';
+import { recordBook, teamPollHistory, headToHead } from './records.js?v=20261016214007';
 
 const ui = { confFilter: '', ncaaDraft: null, teamSort: { k: 'ovr', dir: -1 }, coachSort: { k: 'now', dir: -1 }, teamTab: 'season', h2hSort: { k: 'g', dir: -1 }, h2hFilter: 'all' };
 
@@ -523,7 +523,7 @@ export function renderTeamPage(name) {
           const res = fin ? `<b class="${won ? 'good' : 'bad'}">${won ? 'W' : 'L'}</b> ${home ? g.homeR : g.awayR}-${home ? g.awayR : g.homeR}${inn !== 7 ? ` <span class="muted small">(${inn})</span>` : ''}` : '<span class="muted">—</span>';
           return `<tr class="clickable" data-g="${g.id}"><td class="small">${g.week > regWeeksOf(s) ? esc(weekName(g.week, s).replace('Conf. Tournaments', 'Conf T')) : g.week}</td><td class="small">${esc(g.day)}</td>
             <td class="num muted small">${fin && cache.ranksAt(g.week)[name] ? '#' + cache.ranksAt(g.week)[name] : ''}</td>
-            <td>${g.site ? (g.site === name ? '' : '@') : g.neutral ? 'vs' : home ? '' : '@'} ${team(opp, { ranks: fin ? cache.ranksAt(g.week) : null })}${g.label ? ` <span class="muted small">${esc(g.label.split(' · ')[0])}</span>` : g.confGame ? ' <span class="muted small">*</span>' : ''}</td><td>${res}</td></tr>`;
+            <td>${g.site ? (g.site === name ? '' : g.site === opp ? '@' : 'vs') : g.neutral ? 'vs' : home ? '' : '@'} ${team(opp, { ranks: fin ? cache.ranksAt(g.week) : null })}${g.label ? ` <span class="muted small">${esc(g.label.split(' · ')[0])}</span>` : g.confGame ? ' <span class="muted small">*</span>' : ''}</td><td>${res}</td></tr>`;
         }).join('') || '<tr><td colspan="5" class="muted">No games.</td></tr>'}</tbody></table></div><p class="small muted">* conference game. Ranks on played games are from the poll in effect when the game was played.</p></div>
     ${inSeason ? `<div class="card" style="margin-top:16px"><h2>Commissioner edits</h2>
       <div class="row"><label class="field" style="flex:2;min-width:160px">School <input type="text" id="e-school" value="${esc(name)}"></label>
