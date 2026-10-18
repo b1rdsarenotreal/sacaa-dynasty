@@ -605,4 +605,20 @@ runFormat({ regionals: 16, perRegional: 2, wsSize: 8 }, se => {
   const per = {}; for (const g of gs) for (const t of [g.home, g.away]) per[t + g.day] = (per[t + g.day] || 0) + 1;
   assert.ok(Math.max(...Object.values(per)) <= 2, 'at most a doubleheader per team per day');
   assert.ok(ev.champion && ev.seeds.includes(ev.champion)); }
+// Fail-safe: every member of a conference plays the same number of conference games
+{
+  const { confRounds, confSeriesCounts } = await import('../js/schedule.js');
+  const { rng } = await import('../js/util.js');
+  for (const n of [5, 7, 9, 11, 12, 13, 15]) for (let k = 0; k < 30; k++) {
+    const names = Array.from({ length: n }, (_, i) => `t${i}`);
+    assert.equal(new Set(Object.values(confSeriesCounts(confRounds(names, 9, rng(k + n * 100)), names))).size, 1, `${n}-team conference: equal series`);
+  }
+  for (const se of Object.values(league.seasons)) {
+    const per = {};
+    for (const g of se.games) if (g.type === 'regular' && g.confGame) for (const t of [g.home, g.away]) per[t] = (per[t] || 0) + 1;
+    const byConf = {};
+    for (const t of Object.values(se.teams)) (byConf[t.conference] ||= new Set()).add(per[t.school] || 0);
+    for (const [c, v] of Object.entries(byConf)) assert.equal(v.size, 1, `${se.year} ${c}: every team plays the same number of conference games (${[...v]})`);
+  }
+}
 console.log(`ok in ${Date.now() - t0} ms`);
