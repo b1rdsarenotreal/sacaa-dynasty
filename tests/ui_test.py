@@ -24,7 +24,7 @@ try:
         # Pac-10: 8-team double elimination; CCAA: double elimination
         pg.goto(url + "#/standings"); pg.wait_for_selector("[data-format]", state="attached")
         open_all = "document.querySelectorAll('details').forEach(d => d.open = true)"
-        for sel, val in [("select[data-format='Pac-10']", "double"), ("select[data-size='Pac-10']", "8"), ("select[data-format='CCAA']", "double")]:
+        for sel, val in [("select[data-format='Pac-10']", "double"), ("select[data-size='Pac-10']", "8"), ("select[data-format='CCAA']", "double"), ("select[data-weekend='Pac-10']", "dh-sun")]:
             pg.evaluate(open_all); pg.select_option(sel, val); pg.wait_for_timeout(200)
         pg.goto(url + "#/schedule"); pg.wait_for_selector(".game")
         pg.click("#w-sim"); pg.wait_for_timeout(300)
@@ -37,6 +37,8 @@ try:
           const want = getComputedStyle(probe).color; probe.remove();
           return { w: cs.borderLeftWidth, l: cs.borderLeftColor, t: cs.borderTopColor, b: cs.borderBottomColor, want }; })()""")
         assert bd["w"] == "2px" and bd["l"] == bd["t"] == bd["b"] == bd["want"], f"conference border color: {bd}"
+        dh = pg.evaluate("[...document.querySelectorAll('.game.conf-game')].filter(g => g.querySelector('.ga-conf')?.title.startsWith('Pac-10')).map(g => [g.querySelector('.ga-status').textContent.trim(), g.querySelector('.ga-tag').textContent.includes('DH')])")
+        assert dh and all((day == "Sat") == isdh and day in ("Sat", "Sun") for day, isdh in dh), f"Pac-10: Saturday doubleheader, then Sunday: {dh}"
         pg.goto(url + "#/schedule"); pg.click(".chip[data-week='2']"); pg.wait_for_timeout(200)
         order_js = "[...document.querySelectorAll('.game[data-game]')].map(e => e.dataset.game).join(',')"
         before = pg.evaluate(order_js)

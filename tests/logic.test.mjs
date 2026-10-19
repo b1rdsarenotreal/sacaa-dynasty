@@ -621,4 +621,27 @@ runFormat({ regionals: 16, perRegional: 2, wsSize: 8 }, se => {
     for (const [c, v] of Object.entries(byConf)) assert.equal(v.size, 1, `${se.year} ${c}: every team plays the same number of conference games (${[...v]})`);
   }
 }
+// Conference weekend formats: Saturday doubleheaders
+{
+  const { generateSchedule, applyConfWeekend, seriesDays } = await import('../js/schedule.js');
+  const { newLeague: nl, currentSeason: cs } = await import('../js/league.js');
+  const L2 = nl(), s2 = cs(L2);
+  s2.settings.confWeekend = { 'Pac-10': 'dh-sun', 'CCAA': 'dh-fri', 'Big West': 'dh-mix' };
+  s2.games = generateSchedule(s2);
+  const daysOf = conf => {
+    const by = {};
+    for (const g of s2.games) if (g.type === 'regular' && g.confGame && s2.teams[g.home].conference === conf) (by[g.series] ||= []).push(g);
+    return Object.values(by).map(gs => gs.sort((a, b) => a.order - b.order).map(g => g.day + (g.dh ? g.dh : '')).join(' '));
+  };
+  assert.ok(daysOf('Pac-10').length && daysOf('Pac-10').every(d => d === 'Sat1 Sat2 Sun'), 'Pac-10: Saturday doubleheader, then Sunday');
+  assert.ok(daysOf('CCAA').every(d => d === 'Fri Sat1 Sat2'), 'CCAA: Friday, then a Saturday doubleheader');
+  assert.deepEqual([...new Set(daysOf('Big West'))].sort(), ['Fri Sat1 Sat2', 'Sat1 Sat2 Sun'], 'Big West: mixed');
+  assert.ok(daysOf('West Coast').every(d => d === 'Fri Sat Sun'), 'West Coast: one game a day');
+  assert.ok(s2.games.filter(g => g.type === 'regular' && !g.confGame && g.series && !g.midweek).every(g => !g.dh), 'non-conference series stay one a day');
+  // Changing the format re-lays unplayed series.
+  s2.settings.confWeekend['West Coast'] = 'dh-sun';
+  assert.ok(applyConfWeekend(s2, 'West Coast') > 0);
+  assert.ok(daysOf('West Coast').every(d => d === 'Sat1 Sat2 Sun'), 'West Coast re-laid');
+  assert.deepEqual(seriesDays(undefined).map(x => x.day), ['Fri', 'Sat', 'Sun']);
+}
 console.log(`ok in ${Date.now() - t0} ms`);
