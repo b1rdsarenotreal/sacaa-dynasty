@@ -1,16 +1,16 @@
 // Shared UI state and pieces used by every page: the league, saving,
 // team labels and logos, game cards, and the game editor.
 
-import { saveLeague } from './store.js?v=20261028160551';
-import { logoFor } from './logos.js?v=20261028160551';
-import { LOGO_ALIASES } from './data.js?v=20261028160551';
-import { ovr, winProbability } from './sim.js?v=20261028160551';
-import { records, isFinal, winnerOf } from './standings.js?v=20261028160551';
-import { latestPoll, pollRankMap } from './polls.js?v=20261028160551';
-import { afterChange, applyResult, clearResult, simResult, deleteGame, weekName, estimateHE } from './league.js?v=20261028160551';
-import { regWeeksOf, shownSeed, mcwsVenue } from './postseason.js?v=20261028160551';
-import { DAY_ORDER } from './schedule.js?v=20261028160551';
-import { esc } from './util.js?v=20261028160551';
+import { saveLeague } from './store.js?v=20261028161145';
+import { logoFor } from './logos.js?v=20261028161145';
+import { LOGO_ALIASES } from './data.js?v=20261028161145';
+import { ovr, winProbability } from './sim.js?v=20261028161145';
+import { records, isFinal, winnerOf } from './standings.js?v=20261028161145';
+import { latestPoll, pollRankMap } from './polls.js?v=20261028161145';
+import { afterChange, applyResult, clearResult, simResult, deleteGame, weekName, estimateHE } from './league.js?v=20261028161145';
+import { regWeeksOf, shownSeed, mcwsVenue } from './postseason.js?v=20261028161145';
+import { DAY_ORDER } from './schedule.js?v=20261028161145';
+import { esc } from './util.js?v=20261028161145';
 
 export { esc };
 export const ctx = { league: null, render: () => {} };
