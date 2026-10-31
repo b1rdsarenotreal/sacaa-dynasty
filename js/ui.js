@@ -1,16 +1,16 @@
 // Shared UI state and pieces used by every page: the league, saving,
 // team labels and logos, game cards, and the game editor.
 
-import { saveLeague } from './store.js?v=20261028213304';
-import { logoFor } from './logos.js?v=20261028213304';
-import { LOGO_ALIASES } from './data.js?v=20261028213304';
-import { ovr, winProbability } from './sim.js?v=20261028213304';
-import { records, isFinal, winnerOf } from './standings.js?v=20261028213304';
-import { latestPoll, pollRankMap } from './polls.js?v=20261028213304';
-import { afterChange, applyResult, clearResult, simResult, deleteGame, weekName, estimateHE } from './league.js?v=20261028213304';
-import { regWeeksOf, shownSeed, mcwsVenue } from './postseason.js?v=20261028213304';
-import { DAY_ORDER } from './schedule.js?v=20261028213304';
-import { esc } from './util.js?v=20261028213304';
+import { saveLeague } from './store.js?v=20261030234602';
+import { logoFor } from './logos.js?v=20261030234602';
+import { LOGO_ALIASES } from './data.js?v=20261030234602';
+import { ovr, winProbability } from './sim.js?v=20261030234602';
+import { records, isFinal, winnerOf, sameConf } from './standings.js?v=20261030234602';
+import { latestPoll, pollRankMap } from './polls.js?v=20261030234602';
+import { afterChange, applyResult, clearResult, simResult, deleteGame, weekName, estimateHE } from './league.js?v=20261030234602';
+import { regWeeksOf, shownSeed, mcwsVenue, gameVenue } from './postseason.js?v=20261030234602';
+import { DAY_ORDER } from './schedule.js?v=20261030234602';
+import { esc } from './util.js?v=20261030234602';
 
 export { esc };
 export const ctx = { league: null, render: () => {} };
@@ -204,14 +204,7 @@ function gameConf(s, g) {
   return null;
 }
 const gameStatus = g => (isFinal(g) ? `Final${(n => (n !== 7 ? `/${n}` : ''))(Math.max(g.homeLine.length, g.awayLine.length))}` : g.day);
-// Where a game is played: the host school (a conference tournament's host
-// when neither team is the host), or the championship venue.
-function gameVenue(s, g) {
-  if (g.type === 'mcws') { const v = mcwsVenue(s); return { host: null, stadium: v.stadium, city: v.city }; }
-  const ev = ['conf', 'regional', 'super'].includes(g.type) ? [...Object.values(s.post?.confT || {}), ...(s.post?.regionals || []), ...(s.post?.supers || [])].find(e => e.id === g.event) : null;
-  return { host: g.site || (g.neutral ? ev?.host || null : g.home) || null, stadium: '', city: '' };
-}
-const venueText = (s, g) => { const v = gameVenue(s, g); return v.stadium ? [v.stadium, (v.city || '').split(',')[0]].filter(Boolean).join(', ') : v.host ? `At ${v.host}` : 'Neutral site'; };
+const venueText = (s, g) => { const v = gameVenue(s, g); return v.stadium || v.city ? [v.stadium, (v.city || '').split(',')[0]].filter(Boolean).join(', ') : ''; };
 function favorite(s, g) {
   if (!(g.home && g.away && s.teams[g.home] && s.teams[g.away])) return '';
   const wp = winProbability(s.teams[g.home], s.teams[g.away], g, { volatility: s.settings.volatility });
@@ -382,7 +375,7 @@ function editGame(id, { isNew = false } = {}) {
   modal.innerHTML = `
     <div class="modal-head"><h2>${esc(g.label || `${weekName(g.week, s)} · ${DAY_NAMES[g.day] || g.day}`)}</h2>${isFinal(g) ? '<button class="btn sm ghost" id="m-back">‹ Box score</button>' : ''}<button class="btn ghost" data-x>✕</button></div>
     <div class="modal-body stack">
-      ${g.type === 'mcws' ? (v => `<div class="small muted venue-line">${esc(v.stadium)}${v.city ? ` · ${esc(v.city)}` : ''}</div>`)(mcwsVenue(s)) : ''}
+      ${(v => v.stadium || v.city ? `<div class="small muted venue-line">${esc([v.stadium, v.city].filter(Boolean).join(' · '))}</div>` : '')(gameVenue(s, g))}
       ${regular ? `<div class="row">
         <label class="field" style="flex:1;min-width:140px">Away <select id="m-away">${teamOptions(g.away)}</select></label>
         <label class="field" style="flex:1;min-width:140px">Home <select id="m-home">${teamOptions(g.home)}</select></label>
@@ -470,7 +463,7 @@ function editGame(id, { isNew = false } = {}) {
   if (regular) {
     const onTeams = () => {
       const t = cur();
-      if (t.home && t.away && s.teams[t.home] && s.teams[t.away]) $('#m-conf', modal).checked = s.teams[t.home].conference === s.teams[t.away].conference;
+      if (t.home && t.away && s.teams[t.home] && s.teams[t.away]) $('#m-conf', modal).checked = sameConf(s.teams, t.home, t.away);
       drawGrid(); refresh();
     };
     $('#m-home', modal).onchange = onTeams; $('#m-away', modal).onchange = onTeams;

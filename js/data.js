@@ -138,11 +138,83 @@ export const COACHES = {
   'Western Washington': 'Sheryl Gilmore',
 };
 
-export function makeTeam({ school, conference, abbr, mascot = '', coach = '', coachId = null, color = '#555555', altColor = '#dddddd', off = 65, pit = 65, def = 65 }) {
+// Home fields: [stadium, city]. Most are the school's softball stadium; a
+// school without a softball team gets its baseball park. Teams added later
+// pick these up by name, and every field can be edited on the team page.
+export const SITES = {
+  'Arizona': ['Rita Hillenbrand Memorial Stadium', 'Tucson, Ariz.'],
+  'Arizona State': ['Alberta B. Farrington Softball Stadium', 'Tempe, Ariz.'],
+  'Azusa Pacific': ['Cougar Softball Complex', 'Azusa, Calif.'],
+  'Bakersfield': ['Roadrunner Softball Complex', 'Bakersfield, Calif.'],
+  'Biola': ['Freedom Field', 'La Mirada, Calif.'],
+  'Cal Baptist': ['John C. Funk Stadium', 'Riverside, Calif.'],
+  'Cal Poly': ['Bob Janssen Field', 'San Luis Obispo, Calif.'],
+  'Cal Poly Humboldt': ['Humboldt Softball Field', 'Arcata, Calif.'],
+  'Cal State Dominguez Hills': ['Toro Diamond', 'Carson, Calif.'],
+  'Cal State East Bay': ['Pioneer Field', 'Hayward, Calif.'],
+  'Cal State Fullerton': ['Anderson Family Field', 'Fullerton, Calif.'],
+  'Cal State Monterey Bay': ['Otter Sports Complex', 'Seaside, Calif.'],
+  'Cal State Northridge': ['Matador Diamond', 'Northridge, Calif.'],
+  'Cal State San Bernardino': ['CSUSB Softball Park', 'San Bernardino, Calif.'],
+  'Cal State San Marcos': ['CSUSM Softball Field', 'San Marcos, Calif.'],
+  'California': ['Levine-Fricke Field', 'Berkeley, Calif.'],
+  'Central Washington': ['Gary & Bobbi Frederick Field', 'Ellensburg, Wash.'],
+  'Chaminade': ['Silversword Field at Sand Island Park', 'Honolulu, Hawaii'],
+  'Chico State': ['Wildcat Softball Field', 'Chico, Calif.'],
+  'Concordia': ['Golden Eagles Stadium', 'Irvine, Calif.'],
+  'Dominican': ['Penguin Field', 'San Rafael, Calif.'],
+  'Fresno State': ['Margie Wright Diamond', 'Fresno, Calif.'],
+  'Grand Canyon': ['GCU Softball Stadium', 'Phoenix, Ariz.'],
+  "Hawai'i Pacific": ['Sand Island State Recreation Area', 'Honolulu, Hawaii'],
+  "Hawai'i-Hilo": ['Vulcan Softball Field', 'Hilo, Hawaii'],
+  'Hawaii': ['Rainbow Wahine Softball Stadium', 'Honolulu, Hawaii'],
+  'Jessup': ['Foskett Regional Park', 'Lincoln, Calif.'],
+  'Long Beach State': ['LBSU Softball Complex', 'Long Beach, Calif.'],
+  'Loyola Marymount': ['Smith Field', 'Los Angeles, Calif.'],
+  'Menlo': ['Wunderlich Field', 'Atherton, Calif.'],
+  'Nevada': ['Christina M. Hixson Softball Park', 'Reno, Nev.'],
+  'Oregon': ['Jane Sanders Stadium', 'Eugene, Ore.'],
+  'Oregon State': ['Kelly Field', 'Corvallis, Ore.'],
+  'Pacific': ['Bill Simoni Field', 'Stockton, Calif.'],
+  'Portland State': ['Hillsboro Ballpark', 'Hillsboro, Ore.'],
+  'Sacramento State': ['Shea Stadium', 'Sacramento, Calif.'],
+  "Saint Martin's": ['Saints Softball Field', 'Lacey, Wash.'],
+  "Saint Mary's": ['Cottrell Field', 'Moraga, Calif.'],
+  'San Diego': ['Reggie Smith Softball Complex', 'San Diego, Calif.'],
+  'San Diego State': ['SDSU Softball Stadium', 'San Diego, Calif.'],
+  'San Francisco State': ['SFSU Softball Field', 'San Francisco, Calif.'],
+  'San Jose State': ['Spartan Softball Stadium', 'San Jose, Calif.'],
+  'Santa Clara': ['Santa Clara Softball Stadium', 'Santa Clara, Calif.'],
+  'Seattle': ['Logan Field', 'Seattle, Wash.'],
+  'Stanford': ['Smith Family Stadium', 'Stanford, Calif.'],
+  'Stanislaus State': ['Warrior Softball Field', 'Turlock, Calif.'],
+  'UC Davis': ['La Rue Field', 'Davis, Calif.'],
+  'UC Riverside': ['Amy S. Harrison Field', 'Riverside, Calif.'],
+  'UC San Diego': ['Triton Softball Field', 'La Jolla, Calif.'],
+  'UC Santa Barbara': ['Campus Diamond', 'Santa Barbara, Calif.'],
+  'UCLA': ['Easton Stadium', 'Los Angeles, Calif.'],
+  'UNLV': ['Eller Media Stadium', 'Las Vegas, Nev.'],
+  'Vanguard': ['VU Softball Field', 'Costa Mesa, Calif.'],
+  'Washington': ['Husky Softball Stadium', 'Seattle, Wash.'],
+  'Western Oregon': ['WOU Softball Field', 'Monmouth, Ore.'],
+  'Western Washington': ['Viking Field', 'Bellingham, Wash.'],
+};
+
+export function makeTeam({ school, conference, abbr, mascot = '', coach = '', coachId = null, color = '#555555', altColor = '#dddddd', off = 65, pit = 65, def = 65, stadium, city }) {
+  const known = SITES[school] || [];
   return {
     school, conference, abbr: abbr || school.replace(/[^A-Za-z ]/g, '').split(/\s+/).map(w => w[0]).join('').slice(0, 4).toUpperCase(),
     mascot, coach, coachId, color, altColor, off, pit, def, base: { off, pit, def }, logoOverride: null,
+    stadium: stadium || known[0] || '', city: city || known[1] || '',
   };
+}
+
+// Gives a team its home field from SITES if it has none yet (older saves).
+export function fillSite(t) {
+  if (t.stadium !== undefined && t.city !== undefined) return;
+  const known = SITES[t.school] || [];
+  t.stadium ??= known[0] || '';
+  t.city ??= known[1] || '';
 }
 
 export function seedTeams() {

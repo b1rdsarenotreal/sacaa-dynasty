@@ -1,14 +1,17 @@
 // Season pages: home, schedule, standings, rankings and postseason.
 
-import { ctx, S, app, modal, $, $$, esc, toast, changed, persist, cache, team, teamOptions, teamNames, confLogo, confHref, confColor, confInfo, gameCard, compactCard, placeholderCard, bindGameCards, openGame, resultText, DAY_NAMES, readableOn, teamInfo, logoImg, teamHref } from './ui.js?v=20261028213304';
-import { isFinal, winnerOf, records, rpi, confStandings, conferences, regSeasonChamp, regSeasonChamps, TIEBREAKERS, quadrants, quadCuts } from './standings.js?v=20261028213304';
-import { latestPoll, generatePoll, pollRankMap, pollSizeOf, VOTER_PANEL, voterStyle, votersOf, addRandomVoter, removeVoter } from './polls.js?v=20261028213304';
-import { ovr } from './sim.js?v=20261028213304';
-import { simGames, addGame, weekName } from './league.js?v=20261028213304';
-import { CONF_FORMATS, confFormatName, confKind } from './postseason.js?v=20261028213304';
-import { COMMITTEE_TIERS, COMMITTEE_SHORT, committeeSheet, compareTeams, mcwsVenue, postWeeks, regWeeksOf, ncaaConfig, hasSupers, fieldSize, wsTeams, formatSummary, shownSeed, postseasonBonus, defaultConfTourneySize, confTourneySeeds, reseedConfTourney, proposeField, lockField, pods, nodeTeams, nodeNeeded, runnerUp, committeeOrder, autoBids, refLabel, setConfFormat, ensureLayout, confHost, setConfHost, mcwsHistory, selectionBoard, setAtLarge, confirmField, unconfirmField, bracketology, BRACKETOLOGY_FROM_WEEK } from './postseason.js?v=20261028213304';
-import { fmtPct, hashStr } from './util.js?v=20261028213304';
-import { DAY_ORDER, CONF_WEEKENDS, applyConfWeekend } from './schedule.js?v=20261028213304';
+import { ctx, S, app, modal, $, $$, esc, toast, changed, persist, cache, team, teamOptions, teamNames, confLogo, confHref, confColor, confInfo, gameCard, compactCard, placeholderCard, bindGameCards, openGame, resultText, DAY_NAMES, readableOn, teamInfo, logoImg, teamHref } from './ui.js?v=20261030234602';
+import { isFinal, winnerOf, records, rpi, confStandings, conferences, regSeasonChamp, regSeasonChamps, TIEBREAKERS, quadrants, quadCuts, isIndependent, INDEPENDENT } from './standings.js?v=20261030234602';
+import { latestPoll, generatePoll, pollRankMap, pollSizeOf, VOTER_PANEL, voterStyle, votersOf, addRandomVoter, removeVoter } from './polls.js?v=20261030234602';
+import { ovr } from './sim.js?v=20261030234602';
+import { simGames, addGame, weekName } from './league.js?v=20261030234602';
+import { CONF_FORMATS, confFormatName, confKind } from './postseason.js?v=20261030234602';
+import { COMMITTEE_TIERS, COMMITTEE_SHORT, committeeSheet, compareTeams, mcwsVenue, postWeeks, regWeeksOf, ncaaConfig, hasSupers, fieldSize, wsTeams, formatSummary, shownSeed, postseasonBonus, defaultConfTourneySize, confTourneySeeds, reseedConfTourney, proposeField, lockField, pods, nodeTeams, nodeNeeded, runnerUp, committeeOrder, autoBids, refLabel, setConfFormat, ensureLayout, confHost, setConfHost, mcwsHistory, selectionBoard, setAtLarge, confirmField, unconfirmField, bracketology, BRACKETOLOGY_FROM_WEEK } from './postseason.js?v=20261030234602';
+import { fmtPct, hashStr } from './util.js?v=20261030234602';
+import { DAY_ORDER, CONF_WEEKENDS, applyConfWeekend } from './schedule.js?v=20261030234602';
+
+// " at Easton Stadium, Los Angeles, Calif." for a host school with a home field.
+const atField = (s, school) => { const t = s.teams[school]; const f = [t?.stadium, t?.city].filter(Boolean).join(', '); return f ? ` at ${esc(f)}` : ''; };
 
 const ui = { week: null, schedFilter: 'all', pollWeek: null, rankTab: 'poll', postTab: null, editPoll: null, voter: null };
 export function resetSeasonUi() { ui.week = null; ui.pollWeek = null; ui.postTab = null; ui.editPoll = null; }
@@ -36,7 +39,7 @@ export function renderHome() {
   const champ = s.post?.champion;
   const ct = champ ? teamInfo(champ) : null;
   const recent = s.games.filter(isFinal).sort((a, b) => b.week - a.week || b.order - a.order || b.id - a.id).slice(0, 8);
-  const leaders = Object.keys(ctx.league.conferences).filter(c => Object.values(s.teams).some(t => t.conference === c)).map(c => {
+  const leaders = Object.keys(ctx.league.conferences).filter(c => !isIndependent(c) && Object.values(s.teams).some(t => t.conference === c)).map(c => {
     const st = confStandings(s, c, recs);
     return { c, top: st[0] };
   });
@@ -98,7 +101,7 @@ function tourneyStandings(s, weekGames) {
     });
     const done = gs.every(isFinal), played = gs.filter(isFinal).length;
     return `<div class="tst"><div class="row tst-head"><b>${esc(gs[0].label)}</b><span class="spacer"></span><span class="muted small">${done ? `Champion: ${esc(list[0].t)}` : `${played} of ${gs.length} games played`}</span></div>
-      <div class="muted small" style="margin-bottom:4px">Hosted by ${esc(host)} · round robin, Thursday–Sunday</div>
+      <div class="muted small" style="margin-bottom:4px">Hosted by ${esc(host)}${atField(S(), host)} · round robin, Thursday–Sunday</div>
       <table class="tst-table"><thead><tr><th></th><th>Team</th><th class="num">W-L</th><th class="num">RS</th><th class="num">RA</th><th class="num">Diff</th></tr></thead>
       <tbody>${list.map((x, i) => `<tr class="${done && i === 0 ? 'tst-champ' : ''}"><td class="num muted">${i + 1}</td><td>${team(x.t, { size: 16, ranks: weekRanks })}</td><td class="num"><b>${x.w}-${x.l}</b></td><td class="num">${x.rs}</td><td class="num">${x.ra}</td><td class="num ${x.rs - x.ra > 0 ? 'good' : x.rs - x.ra < 0 ? 'bad' : ''}">${x.rs - x.ra > 0 ? '+' : ''}${x.rs - x.ra}</td></tr>`).join('')}</tbody></table></div>`;
   });
@@ -151,6 +154,7 @@ export function renderSchedule() {
   // still cover the whole week). A game counts as ranked if either team was
   // ranked in the poll in effect when it was played (the latest poll if not).
   const confs = conferences(s);
+  if (Object.values(s.teams).some(t => isIndependent(t.conference))) confs.push(INDEPENDENT);
   if (ui.schedFilter !== 'all' && !['ranked', 'top'].includes(ui.schedFilter) && !confs.includes(ui.schedFilter.replace(/^conf:/, ''))) ui.schedFilter = 'all';
   const rankedIn = g => { const r = isFinal(g) ? cache.ranksAt(g.week) : cache.ranks(); return [g.home, g.away].filter(t => r[t]).length; };
   const sf = ui.schedFilter, filtering = sf !== 'all';
@@ -206,7 +210,13 @@ export function renderSchedule() {
 export function renderStandings() {
   const s = S(), recs = cache.recs(), r = rpi(s);
   const regRecs = records(s, g => g.type === 'regular');
-  const confs = Object.keys(ctx.league.conferences).filter(c => Object.values(s.teams).some(t => t.conference === c));
+  const confs = Object.keys(ctx.league.conferences).filter(c => !isIndependent(c) && Object.values(s.teams).some(t => t.conference === c));
+  // Independents: no conference record, so they're listed by overall record.
+  const indep = Object.values(s.teams).filter(t => isIndependent(t.conference)).map(t => t.school)
+    .sort((a, b) => (recs[b].w / Math.max(1, recs[b].w + recs[b].l)) - (recs[a].w / Math.max(1, recs[a].w + recs[a].l)) || (r[a]?.rank ?? 999) - (r[b]?.rank ?? 999));
+  const indepCard = indep.length ? `<div class="card"><div class="row" style="margin-bottom:8px"><a href="${confHref(INDEPENDENT)}">${confLogo(INDEPENDENT, 30)}</a><h2 style="margin:0"><a class="team-link" href="${confHref(INDEPENDENT)}">Independents</a></h2><span class="spacer"></span><span class="muted small">No conference: at-large bids only</span></div>
+      <div class="table-wrap"><table><thead><tr><th></th><th>Team</th><th class="num">Overall</th><th class="num">RPI</th><th class="num">Home</th><th class="num">Away</th><th class="num">Strk</th></tr></thead>
+        <tbody>${indep.map((t, i) => `<tr><td class="num muted">${i + 1}</td><td>${team(t)}</td><td class="num"><b>${recs[t].w}-${recs[t].l}</b></td><td class="num">${r[t]?.rank ?? '—'}</td><td class="num">${recs[t].hw}-${recs[t].hl}</td><td class="num">${recs[t].aw}-${recs[t].al}</td><td class="num">${recs[t].streak || ''}</td></tr>`).join('')}</tbody></table></div></div>` : '';
   const card = c => {
     const st = confStandings(s, c, regRecs, r);
     const n = st.length;
@@ -240,7 +250,7 @@ export function renderStandings() {
     <div class="section-head"><h1>${s.year} Standings</h1><span class="muted">Ordered by conference winning percentage. The line marks the conference tournament cut.</span></div>
     <details class="card small" style="margin-bottom:16px"><summary><b>Tiebreakers</b></summary><ol style="margin:8px 0 0 18px">${TIEBREAKERS.map(t => `<li>${esc(t)}</li>`).join('')}</ol>
       <p class="muted" style="margin:6px 0 0">The same order seeds the conference tournaments.</p></details>
-    <div class="grid wide">${confs.map(card).join('')}</div>`;
+    <div class="grid wide">${confs.map(card).join('')}${indepCard}</div>`;
   $$('[data-champ]').forEach(sel => (sel.onchange = () => {
     s.overrides.regChamps ||= {};
     if (sel.value) s.overrides.regChamps[sel.dataset.champ] = sel.value; else delete s.overrides.regChamps[sel.dataset.champ];
@@ -624,6 +634,9 @@ function eventBracket(ev, seedFn, { stack = false, colw = BK.COLW } = {}) {
   </div></div>`;
 }
 
+// Anchor for an event's card (conference names can have spaces).
+const evAnchor = id => `ev-${String(id).replace(/[^A-Za-z0-9_-]+/g, '-')}`;
+
 // A link like #/postseason/2031/regionals/reg-3 opens that season's tab and
 // scrolls to that bracket. The address then goes back to #/postseason so the
 // season picker and tabs keep working.
@@ -639,7 +652,7 @@ export function renderPostseason(arg = '') {
   renderPostseasonPage();
   // After the router's own scroll-to-top for a new page.
   if (focus) setTimeout(() => {
-    const el = document.getElementById(`ev-${focus}`);
+    const el = document.getElementById(evAnchor(focus));
     if (!el) return;
     el.scrollIntoView({ block: 'start' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1800);
   }, 0);
@@ -649,7 +662,7 @@ function renderPostseasonPage() {
   const s = S(), p = s.post || {};
   const cfg = ncaaConfig(s);
   const defaultTab = { regular: 'conf', conf: 'conf', selection: 'field', regionals: 'regionals', supers: 'supers', mcws: 'mcws', complete: 'mcws' }[s.phase];
-  const tabs = { conf: 'Conference tournaments', field: 'Selection', regionals: 'Regionals', ...(hasSupers(cfg) ? { supers: 'Super Regionals' } : {}), participants: 'Participants', mcws: s.settings.mcwsName };
+  const tabs = { conf: 'Conference tournaments', field: 'Selection', regionals: 'Regionals', ...(hasSupers(cfg) ? { supers: 'Super Regionals' } : {}), participants: 'Participants', mcws: s.settings.mcwsName.replace("National Championships", 'National Championships') };
   if (!ui.postTab || !tabs[ui.postTab]) ui.postTab = defaultTab;
   const left = s.games.filter(g => g.type !== 'regular' && !isFinal(g)).length + (s.phase === 'regular' ? 1 : 0);
   app.innerHTML = `
@@ -690,7 +703,7 @@ function renderConfTourneys(root) {
   root.innerHTML = `${anyOpen ? '<div class="row" style="margin-bottom:12px"><span class="spacer"></span><button class="btn primary" id="ct-sim">🎲 Sim conference tournaments</button></div>' : ''}
     ${evs.map(ev => {
       const started = ev.nodes.some(n => n.gameId && s.games.find(g => g.id === n.gameId && isFinal(g)));
-      return `<div class="card"><div class="row" style="margin-bottom:10px"><a href="${confHref(ev.conf)}">${confLogo(ev.conf, 28)}</a><h2 style="margin:0">${esc(ev.conf)} Tournament</h2>
+      return `<div class="card" id="${evAnchor(ev.id)}"><div class="row" style="margin-bottom:10px"><a href="${confHref(ev.conf)}">${confLogo(ev.conf, 28)}</a><h2 style="margin:0">${esc(ev.conf)} Tournament</h2>
         ${ev.champion ? `<span class="badge gold">Champion: ${esc(ev.champion)}</span>` : ''}<span class="spacer"></span>
         ${started ? `<span class="muted small">${confFormatName(ev.kind)}</span>` : `${ev.size >= 3 ? `<select class="sm-select" data-cformat="${esc(ev.conf)}" aria-label="${esc(ev.conf)} tournament format">${CONF_FORMATS.filter(([k]) => k !== 'playin' || ev.size >= 5).map(([k, l]) => `<option value="${k}" ${ev.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select>` : ''}<button class="btn sm" data-reseed="${esc(ev.conf)}">Edit seeds</button>`}</div>
         ${hostPicker(s, ev.conf, ev)}
@@ -714,7 +727,7 @@ function hostPicker(s, conf, ev = null) {
   const teams = Object.values(s.teams).filter(t => t.conference === conf).map(t => t.school).sort();
   const locked = !!ev?.champion;
   const inField = !ev || ev.seeds.includes(host);
-  return `<div class="row small host-row" style="margin:6px 0 8px;gap:8px">${logoImg(teamInfo(host), 18)}<span>Hosted by <b>${esc(host)}</b>${inField ? '' : ` <span class="muted">(didn't qualify; every game is still played there)</span>`}</span>
+  return `<div class="row small host-row" style="margin:6px 0 8px;gap:8px">${logoImg(teamInfo(host), 18)}<span>Hosted by <b>${esc(host)}</b>${atField(s, host)}${inField ? '' : ` <span class="muted">(didn't qualify; every game is still played there)</span>`}</span>
     ${locked ? '' : `<label class="muted" style="display:inline-flex;align-items:center;gap:6px">Change <select class="sm-select" data-host="${esc(conf)}" aria-label="${esc(conf)} tournament host">${teamOptions(host, { blank: false, list: teams })}</select></label>`}</div>`;
 }
 function bindHostPickers(root) {
@@ -930,8 +943,8 @@ function renderRegionals(root) {
   const seed = t => shownSeed(s, t);
   const named = t => `${esc(t)}${seed(t) ? ` (${seed(t)})` : ''}`;
   root.innerHTML = `${open ? '<div class="row" style="margin-bottom:12px"><span class="spacer"></span><button class="btn primary" id="rg-sim">🎲 Sim regionals</button></div>' : ''}
-    ${p.regionals.map(ev => `<div class="card" id="ev-${esc(ev.id)}"><div class="row" style="margin-bottom:6px"><h2 style="margin:0">${esc(ev.name)}</h2>${ev.champion ? `<span class="badge gold">Champion: ${esc(ev.champion)}</span>` : ''}</div>
-      <div class="small muted" style="margin-bottom:8px">${ev.seeds.map(named).join(' · ')} · ${ev.kind === 'series' ? 'best of three' : 'double elimination'}, hosted by ${esc(ev.host)}</div>
+    ${p.regionals.map(ev => `<div class="card" id="${evAnchor(ev.id)}"><div class="row" style="margin-bottom:6px"><h2 style="margin:0">${esc(ev.name)}</h2>${ev.champion ? `<span class="badge gold">Champion: ${esc(ev.champion)}</span>` : ''}</div>
+      <div class="small muted" style="margin-bottom:8px">${ev.seeds.map(named).join(' · ')} · ${ev.kind === 'series' ? 'best of three' : 'double elimination'}, hosted by ${esc(ev.host)}${atField(s, ev.host)}</div>
       ${eventBracket(ev, seed)}</div>`).join('')}`;
   if ($('#rg-sim', root)) $('#rg-sim', root).onclick = () => simAndReport(g => g.type === 'regional', 'in the regionals');
 }
@@ -943,8 +956,8 @@ function renderSupers(root) {
   const seed = t => shownSeed(s, t);
   const named = t => `${esc(t)}${seed(t) ? ` (${seed(t)})` : ''}`;
   root.innerHTML = `${open ? '<div class="row" style="margin-bottom:12px"><span class="spacer"></span><button class="btn primary" id="sr-sim">🎲 Sim super regionals</button></div>' : ''}
-    <div class="stack-cards">${p.supers.map(ev => `<div class="card" id="ev-${esc(ev.id)}"><div class="row" style="margin-bottom:6px"><h2 style="margin:0">${esc(ev.name)}</h2>${ev.champion ? `<span class="badge gold">To the National Championships: ${esc(ev.champion)}</span>` : ''}</div>
-      <div class="small muted" style="margin-bottom:8px">${ev.seeds.map(named).join(' vs ')} · best of three at ${esc(ev.host)}</div>
+    <div class="stack-cards">${p.supers.map(ev => `<div class="card" id="${evAnchor(ev.id)}"><div class="row" style="margin-bottom:6px"><h2 style="margin:0">${esc(ev.name)}</h2>${ev.champion ? `<span class="badge gold">To the National Championships: ${esc(ev.champion)}</span>` : ''}</div>
+      <div class="small muted" style="margin-bottom:8px">${ev.seeds.map(named).join(' vs ')} · best of three, hosted by ${esc(ev.host)}${atField(s, ev.host)}</div>
       ${eventBracket(ev, seed)}</div>`).join('')}</div>`;
   if ($('#sr-sim', root)) $('#sr-sim', root).onclick = () => simAndReport(g => g.type === 'super', 'in the super regionals');
 }

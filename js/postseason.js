@@ -12,10 +12,10 @@
 //     bracket winners).
 // The format is locked into the season when the field is announced.
 
-import { blankGame, DAY_ORDER } from './schedule.js?v=20261028213304';
-import { records, rpi, confStandings, conferences, isFinal, winnerOf, loserOf, regularSeasonDone, regSeasonChamp, regSeasonChamps, quadrants } from './standings.js?v=20261028213304';
-import { generatePoll } from './polls.js?v=20261028213304';
-import { hashStr } from './util.js?v=20261028213304';
+import { blankGame, DAY_ORDER } from './schedule.js?v=20261030234602';
+import { records, rpi, confStandings, conferences, isFinal, winnerOf, loserOf, regularSeasonDone, regSeasonChamp, regSeasonChamps, quadrants } from './standings.js?v=20261030234602';
+import { generatePoll } from './polls.js?v=20261030234602';
+import { hashStr } from './util.js?v=20261030234602';
 
 // ---------- tournament format ----------
 
@@ -550,10 +550,21 @@ export function reseedConfTourney(season, conf, seeds) {
 }
 
 // Where the National Championships is played. Every National Championships game is at this neutral site.
-export const DEFAULT_WCWS_VENUE = { stadium: 'Devon Park', city: 'Oklahoma City, Oklahoma' };
+export const DEFAULT_MCWS_VENUE = { stadium: 'Devon Park', city: 'Oklahoma City, Oklahoma' };
 export function mcwsVenue(season) {
   const st = season?.settings || {};
-  return { stadium: st.mcwsVenue || DEFAULT_WCWS_VENUE.stadium, city: st.mcwsCity ?? DEFAULT_WCWS_VENUE.city };
+  return { stadium: st.mcwsVenue || DEFAULT_MCWS_VENUE.stadium, city: st.mcwsCity ?? DEFAULT_MCWS_VENUE.city };
+}
+
+// Where a game is played: { host, stadium, city }. The host is the school whose
+// field it is (null for the National Championships, or a neutral game with no host). A
+// conference tournament, regional or super regional game is at the event
+// host's field, even when the host isn't playing in it.
+export function gameVenue(season, g) {
+  if (g.type === 'mcws') { const v = mcwsVenue(season); return { host: null, stadium: v.stadium, city: v.city }; }
+  const host = g.site || (g.neutral ? (['conf', 'regional', 'super'].includes(g.type) ? allEvents(season).find(ev => ev.id === g.event)?.host : null) : g.home) || null;
+  const t = host ? season.teams[host] : null;
+  return { host, stadium: t?.stadium || '', city: t?.city || '' };
 }
 
 // ---------- selection ----------
@@ -762,6 +773,28 @@ export function confirmField(season) {
 }
 export function unconfirmField(season) { season.post.fieldConfirmed = false; }
 
+// What an NCAA site is called: the host's city ("East Lansing" for Michigan
+// State), or the school when it has no city set.
+export function siteName(season, school) {
+  const city = (season.teams[school]?.city || '').split(',')[0].trim();
+  return city || school;
+}
+
+// Older saves named regionals and super regionals after the host school.
+// Renames those (and their games) after the host's city. Names that don't
+// follow the old pattern are left alone.
+export function citySiteNames(season) {
+  const p = season.post || {};
+  for (const [list, kind] of [[p.regionals, 'Regional'], [p.supers, 'Super Regional']]) {
+    for (const ev of list || []) {
+      const old = `${ev.host} ${kind}`, now = `${siteName(season, ev.host)} ${kind}`;
+      if (ev.name !== old || now === old) continue;
+      ev.name = now;
+      for (const g of season.games) if (g.event === ev.id && g.label?.startsWith(`${old} · `)) g.label = now + g.label.slice(old.length);
+    }
+  }
+}
+
 // Serpentine pods: with 4 regionals, regional 1 gets seeds 1, 8, 9, 16,
 // regional 2 gets 2, 7, 10, 15, and so on. Regional k is hosted by seed k+1.
 export function pods(field, regionals = 4) {
@@ -776,8 +809,9 @@ export function lockField(season) {
   const field = [...p.field].sort((a, b) => a.seed - b.seed);
   p.regionals = pods(field, p.cfg.regionals).map((teams, i) => ({
     id: `reg-${i + 1}`, kind: regionalKind(teams.length), seeds: teams, host: teams[0], nodes: regionalNodes(teams.length), champion: null,
-    name: `${teams[0]} Regional`, path: i,
+    name: `${siteName(season, teams[0])} Regional`, path: i,
   }));
+  uniqueSiteNames(p.regionals, 'Regional');
   season.phase = 'regionals';
 }
 
@@ -787,10 +821,20 @@ const nationalSeed = (season, t) => season.post.field?.find(f => f.team === t)?.
 // regional pairs with the last host's. The higher national seed hosts.
 function buildSupers(season) {
   const regs = season.post.regionals, n = regs.length;
-  return Array.from({ length: n / 2 }, (_, i) => {
+  return uniqueSiteNames(Array.from({ length: n / 2 }, (_, i) => {
     const pair = [regs[i].champion, regs[n - 1 - i].champion].sort((a, b) => nationalSeed(season, a) - nationalSeed(season, b));
-    return { id: `sup-${i + 1}`, kind: 'series', seeds: pair, host: pair[0], nodes: seriesNodes(), champion: null, name: `${pair[0]} Super Regional`, path: i };
-  });
+    return { id: `sup-${i + 1}`, kind: 'series', seeds: pair, host: pair[0], nodes: seriesNodes(), champion: null, name: `${siteName(season, pair[0])} Super Regional`, path: i };
+  }), 'Super Regional');
+}
+// Two hosts in one city (UCLA and Loyola Marymount, say): the second site
+// is named after its school so the names stay different.
+function uniqueSiteNames(events, kind) {
+  const seen = new Set();
+  for (const ev of events) {
+    if (seen.has(ev.name)) ev.name = `${ev.host} ${kind}`;
+    seen.add(ev.name);
+  }
+  return events;
 }
 
 // Teams reaching the National Championships, in bracket-path order (path k = national seed k+1's side).
@@ -967,13 +1011,13 @@ export function postseasonDetail(season, team) {
   const roundOf = x => (nodeOf(x.ev, x.g.node)?.label || '').replace(/ \(.*\)$/, '');
   const seriesScore = ev => { const gs = gamesIn(ev); const w = gs.filter(g => winnerOf(g) === team).length; return `${w}-${gs.length - w}`; };
   const wsEvents = [...(p.mcwsBrackets || []), ...(p.mcwsFinals ? [p.mcwsFinals] : []), ...(p.mcws ? [p.mcws] : [])];
-  const wsName = season.settings?.mcwsName || 'National Championships';
+  const wsName = season.settings?.mcwsName || "National Championships";
   if (finish === 'National champion') return { text: 'National champion', tab: 'mcws', ev: null };
   if (finish === 'National runner-up') {
     const fin = p.mcwsFinals || p.mcws;
     return { text: `National runner-up${fin ? ` · lost Championship Series ${seriesScoreFinals(season, fin, team)}` : ''}`, tab: 'mcws', ev: null };
   }
-  if (finish === 'National Championships') {
+  if (finish === "National Championships") {
     // Short of the final, double elimination: out after a second loss.
     const bracketEvs = wsEvents.filter(ev => ev.kind !== 'series');
     const losses = bracketEvs.flatMap(ev => gamesIn(ev).filter(g => loserOf(g) === team && !/^F\d/.test(g.node || '')));
@@ -996,6 +1040,28 @@ function seriesScoreFinals(season, ev, team) {
   const gs = season.games.filter(g => g.event === ev.id && isFinal(g) && (g.home === team || g.away === team) && (ev.kind === 'series' || /^F\d/.test(g.node || '')));
   const w = gs.filter(g => winnerOf(g) === team).length;
   return `${w}-${gs.length - w}`;
+}
+
+// Postseason records for team and coach histories: the NCAA tournament W-L,
+// and the conference tournament W-L with the champion or the round the team
+// went out in. { ncaa: { w, l } | null, conf: { w, l, champ, out, ev } | null }
+export function postseasonRecord(season, team) {
+  const p = season.post || {};
+  const mine = g => (g.home === team || g.away === team) && isFinal(g);
+  const wl = gs => ({ w: gs.filter(g => winnerOf(g) === team).length, l: gs.filter(g => loserOf(g) === team).length });
+  const ncaaGames = season.games.filter(g => ['regional', 'super', 'mcws'].includes(g.type) && mine(g));
+  const ev = Object.values(p.confT || {}).find(e => e.seeds.includes(team));
+  let conf = null;
+  if (ev) {
+    const gs = season.games.filter(g => g.event === ev.id && mine(g)).sort((a, b) => a.order - b.order || a.id - b.id);
+    const losses = gs.filter(g => loserOf(g) === team);
+    // Out: the tournament is over, or the team has lost out of it already.
+    const out1 = ev.kind === 'single' || losses.some(g => g.node.startsWith('P-'));
+    const done = !!ev.champion || losses.length >= (out1 ? 1 : 2);
+    const last = losses[losses.length - 1];
+    conf = { ...wl(gs), champ: ev.champion === team, out: done && ev.champion !== team && last ? (nodeOf(ev, last.node)?.label || '').replace(/ \(.*\)$/, '') : null, ev: ev.id };
+  }
+  return { ncaa: p.field?.some(f => f.team === team) || ncaaGames.length ? wl(ncaaGames) : null, conf };
 }
 
 export function allEvents(season) {

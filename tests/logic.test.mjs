@@ -1,8 +1,10 @@
+import { migrateLeague } from '../js/league.js';
+import { gameVenue, citySiteNames } from '../js/postseason.js';
 import { confWeeksFor } from '../js/schedule.js';
 // Logic tests: run with `node tests/logic.test.mjs`
 import assert from 'node:assert/strict';
 import { estimateHE, backfillHitsErrors, applyResult, afterChange, newSeason, pointsLeft } from '../js/league.js';
-import { newLeague, currentSeason, simGames, startNextSeason, addTeam, addConference, renameTeam, beginOffseason, draftRemoveTeam, draftWarnings, coachName, weekName, hireCoach, newCoach, availableCoaches } from '../js/league.js';
+import { deleteConference, newLeague, currentSeason, simGames, startNextSeason, addTeam, addConference, renameTeam, beginOffseason, draftRemoveTeam, draftWarnings, coachName, weekName, hireCoach, newCoach, availableCoaches } from '../js/league.js';
 import { bracketology, selectionBoard, setAtLarge, confirmField, mcwsPlaces, mcwsHistory, setConfHost, shownSeed, setConfFormat, postWeeks, wsTeams, ncaaProblems, fieldSize } from '../js/postseason.js';
 import { records, rpi, confStandings, isFinal, regSeasonChamps, regSeasonChamp, quadrants } from '../js/standings.js';
 
@@ -10,6 +12,22 @@ const t0 = Date.now();
 const league = newLeague();
 const s = currentSeason(league);
 assert.equal(Object.keys(s.teams).length, 56);
+
+// Home fields: every starting team has one; a save from before they existed
+// gets them on load; a game is at the home team's field.
+assert.ok(Object.values(s.teams).every(t => t.stadium && t.city), 'every team has a home field');
+assert.deepEqual([s.teams.UCLA.stadium, s.teams.UCLA.city], ['Easton Stadium', 'Los Angeles, Calif.']);
+{
+  const old = JSON.parse(JSON.stringify(league));
+  for (const t of Object.values(old.seasons[old.currentYear].teams)) { delete t.stadium; delete t.city; }
+  old.seasons[old.currentYear].teams.Arizona.stadium = 'My Field';
+  migrateLeague(old);
+  const ot = old.seasons[old.currentYear].teams;
+  assert.equal(ot.UCLA.stadium, 'Easton Stadium');
+  assert.equal(ot.Arizona.stadium, 'My Field', 'an edited field is kept');
+  const g = s.games.find(x => x.type === 'regular' && !x.neutral);
+  assert.equal(gameVenue(s, g).stadium, s.teams[g.home].stadium);
+}
 
 // Schedule shape: 12 weeks, early tournaments, weekend series, two-game midweek sets
 assert.equal(s.regWeeks, 12);
@@ -200,6 +218,20 @@ assert.throws(() => setConfFormat(s, 'West Coast', 'double'), /already started/)
 simGames(s, undefined, { autoLock: true });
 // Regionals keep their if-necessary Game 7 structure
 for (const ev of s.post.regionals) assert.ok(ev.nodes.some(n => n.key === 'G7'), 'regional still has Game 7');
+// Regionals are named after the host's city; older saves named after the
+// school are renamed on load, games included.
+for (const ev of s.post.regionals) assert.ok([`${s.teams[ev.host].city.split(',')[0]} Regional`, `${ev.host} Regional`].includes(ev.name), ev.name);
+assert.equal(new Set(s.post.regionals.map(ev => ev.name)).size, s.post.regionals.length, 'regional names are all different');
+{
+  const se = JSON.parse(JSON.stringify(s)), ev = se.post.regionals[0], city = ev.name;
+  ev.name = `${ev.host} Regional`;
+  for (const g of se.games) if (g.event === ev.id) g.label = g.label.replace(city, ev.name);
+  se.post.regionals[1].name = 'My Regional';
+  citySiteNames(se);
+  assert.equal(ev.name, city);
+  assert.ok(se.games.filter(g => g.event === ev.id).every(g => g.label.startsWith(`${city} · `)), 'game labels renamed');
+  assert.equal(se.post.regionals[1].name, 'My Regional', 'a custom name is kept');
+}
 // "If necessary" games flip home and away from the final they follow (any season so far).
 {
   let checked = 0;
@@ -704,5 +736,61 @@ runFormat({ regionals: 16, perRegional: 2, wsSize: 8 }, se => {
     const seeds = committeeSeeds(se, teams, sh);
     for (let i = 0; i + 1 < seeds.length; i++) assert.equal(compareTeams(sh, seeds[i], seeds[i + 1]).better, seeds[i], `${se.year}: seed ${i + 1} beats seed ${i + 2}`);
   }
+}
+// Independent teams: no conference games, title, tournament or automatic
+// bid; they fill their weekends with non-conference series.
+{ const { INDEPENDENT, conferences: confsOf, regSeasonChamps: rsc } = await import('../js/standings.js');
+  const Li = newLeague();
+  simGames(Li.seasons[Li.currentYear], undefined, { autoLock: true });
+  const di = beginOffseason(Li);
+  for (const t of ['UCLA', 'Biola']) di.teams[t].conference = INDEPENDENT;
+  const si = startNextSeason(Li);
+  const regi = si.games.filter(g => g.type === 'regular');
+  for (const t of ['UCLA', 'Biola']) {
+    const gs = regi.filter(g => g.home === t || g.away === t);
+    assert.equal(gs.filter(g => g.confGame).length, 0, `${t} plays no conference games`);
+    assert.ok(gs.length >= 44, `${t} plays a full schedule (${gs.length})`);
+    const weekends = new Set(gs.filter(g => ['Fri', 'Sat', 'Sun'].includes(g.day)).map(g => g.week)).size;
+    assert.ok(weekends >= 10, `${t} plays most weekends (${weekends} of 12)`);
+  }
+  assert.ok(!confsOf(si).includes(INDEPENDENT), 'Independent is not a conference');
+  simGames(si, undefined, { autoLock: true });
+  assert.equal(rsc(si, INDEPENDENT).length, 0, 'no independent regular-season title');
+  assert.ok(!si.post.confT[INDEPENDENT], 'no independent tournament');
+  assert.ok(Li.conferences[INDEPENDENT], 'every league has the Independent group');
+  assert.throws(() => deleteConference(Li, si, INDEPENDENT), /reserved|can't be deleted/);
+  console.log('independents:', ['UCLA', 'Biola'].map(t => `${t} ${regi.filter(g => g.home === t || g.away === t).length} games${si.post.field.some(f => f.team === t) ? ', at-large bid' : ''}`).join('; ')); }
+// Team histories: where the postseason ended, NCAA and conference tournament records
+{ const { postseasonDetail, postseasonRecord } = await import('../js/postseason.js');
+  const Lp = newLeague(), sp = Lp.seasons[Lp.currentYear];
+  simGames(sp, undefined, { autoLock: true });
+  for (const f of sp.post.field) {
+    const d = postseasonDetail(sp, f.team), r = postseasonRecord(sp, f.team);
+    assert.ok(d && d.text && d.tab, `${f.team} has a postseason detail`);
+    const ng = sp.games.filter(g => ['regional', 'super', 'mcws'].includes(g.type) && (g.home === f.team || g.away === f.team));
+    assert.equal(r.ncaa.w + r.ncaa.l, ng.length, `${f.team}: NCAA record counts every NCAA game`);
+    if (d.tab === 'regionals' && !d.text.endsWith('champion')) assert.match(d.text, / · (out in .+|lost series \d-\d)$/);
+  }
+  assert.equal(postseasonDetail(sp, sp.post.champion).text, 'National champion');
+  assert.equal(postseasonRecord(sp, sp.post.champion).ncaa.l <= 3, true);
+  for (const ev of Object.values(sp.post.confT)) for (const t of ev.seeds) {
+    const c = postseasonRecord(sp, t).conf;
+    assert.ok(c && c.ev === ev.id, `${t} conference tournament record`);
+    if (t === ev.champion) assert.ok(c.champ && !c.out); else assert.ok(!c.champ && c.out, `${t}: round it went out (${ev.kind})`);
+  } }
+// Midweek games lean regional: most visitors travel a short way from home or a weekend site
+{
+  const { cityPoint, miles } = await import('../js/geo.js');
+  assert.deepEqual(cityPoint('Durham, NC'), cityPoint('Durham, N.C.'));
+  assert.ok(miles(cityPoint('Fresno, Calif.'), cityPoint('Reno, Nev.')) < 400 && miles(cityPoint('Los Angeles, Calif.'), cityPoint('Seattle, Wash.')) > 800);
+  const se = league.seasons[league.currentYear], at = {};
+  for (const x of se.games) if (x.type === 'regular' && x.day !== 'Tue' && x.day !== 'Wed') for (const t of [x.home, x.away]) ((at[t] ||= {})[x.week] ||= (x.site || x.home));
+  const trips = se.games.filter(x => x.type === 'regular' && x.day === 'Tue' && !/Game 2/.test(x.label || '')).map(m => {
+    const H = cityPoint(se.teams[m.home].city), v = m.away;
+    return Math.min(...[v, at[v]?.[m.week - 1], at[v]?.[m.week]].filter(t => t && se.teams[t]).map(t => miles(cityPoint(se.teams[t].city), H)));
+  }).filter(Number.isFinite);
+  const share = trips.filter(t => t < 400).length / trips.length;
+  console.log(`midweek: ${trips.length} sets, ${(share * 100).toFixed(0)}% within 400 miles of the visitor's home or weekend site`);
+  assert.ok(share > 0.45, 'midweek games lean regional');
 }
 console.log(`ok in ${Date.now() - t0} ms`);

@@ -1,14 +1,14 @@
 // League (dynasty) lifecycle: creating the league, saving results,
 // simulating, adding teams and conferences, and rolling into new seasons.
 
-import { START_YEAR, CONFERENCES, COACHES, seedTeams, makeTeam } from './data.js?v=20261028213304';
-import { generateSchedule, blankGame, DAY_ORDER, DEFAULT_REG_WEEKS, confWeeksFor, confRounds, confSeriesCounts } from './schedule.js?v=20261028213304';
-import { simulateGame, estimateHitsErrors } from './sim.js?v=20261028213304';
-import { generatePoll, releaseDuePolls } from './polls.js?v=20261028213304';
-import { replayRatings, ensureBase } from './ratings.js?v=20261028213304';
-import { progress, lockField, postWeeks, allEvents, regWeeksOf, DEFAULT_NCAA, pickConfHosts, postseasonFinish, wsTeams } from './postseason.js?v=20261028213304';
-import { isFinal, records } from './standings.js?v=20261028213304';
-import { rng, normal, clamp, hashStr } from './util.js?v=20261028213304';
+import { START_YEAR, CONFERENCES, COACHES, seedTeams, makeTeam, fillSite } from './data.js?v=20261030234602';
+import { generateSchedule, blankGame, DAY_ORDER, DEFAULT_REG_WEEKS, confWeeksFor, confRounds, confSeriesCounts } from './schedule.js?v=20261030234602';
+import { simulateGame, estimateHitsErrors } from './sim.js?v=20261030234602';
+import { generatePoll, releaseDuePolls } from './polls.js?v=20261030234602';
+import { replayRatings, ensureBase } from './ratings.js?v=20261030234602';
+import { progress, lockField, postWeeks, allEvents, regWeeksOf, DEFAULT_NCAA, pickConfHosts, postseasonFinish, citySiteNames, wsTeams } from './postseason.js?v=20261030234602';
+import { isFinal, records, INDEPENDENT } from './standings.js?v=20261030234602';
+import { rng, normal, clamp, hashStr } from './util.js?v=20261030234602';
 
 export const SCHEMA_VERSION = 4;
 
@@ -38,6 +38,7 @@ export function newLeague({ name = 'SACAA Dynasty', year = START_YEAR, teams = s
     coaches: {}, nextCoachId: 1,
     seasons: { [year]: season },
   };
+  ensureIndependent(league);
   for (const t of Object.values(teams)) { t.coachId = t.coach ? newCoach(league, t.coach) : null; delete t.coach; }
   return league;
 }
@@ -221,6 +222,7 @@ export function addConference(league, name, { abbr, color = '#555555' } = {}) {
 
 export function renameConference(league, from, to) {
   to = to.trim();
+  if (from === INDEPENDENT || to === INDEPENDENT) throw new Error('Independent is reserved for teams without a conference.');
   if (!to || to === from) return;
   if (league.conferences[to]) throw new Error('That conference already exists.');
   league.conferences[to] = league.conferences[from];
@@ -236,6 +238,7 @@ export function renameConference(league, from, to) {
 }
 
 export function deleteConference(league, season, name) {
+  if (name === INDEPENDENT) throw new Error('Independent can\'t be deleted; it holds teams without a conference.');
   if (Object.values(season.teams).some(t => t.conference === name)) throw new Error('Move its teams to another conference first.');
   const usedEarlier = Object.values(league.seasons).some(s => Object.values(s.teams).some(t => t.conference === name));
   if (!usedEarlier) delete league.conferences[name];
@@ -256,10 +259,11 @@ export function rebuildSchedule(season, prev = null) {
 // Offseason development. Each team gets an allotment of rating points for
 // next season: more after a winning season, more again for beating what its
 // ratings predicted and for a deep postseason run, fewer for a team already
-// near the top (graduation pulls everyone toward 70), plus some luck. The points are spread across OFF, PIT and DEF automatically, and
-// the commissioner can move them around (or overrule them) in the Offseason.
+// near the top (graduation pulls everyone toward 70), plus some luck, plus
+// the head coach's prestige (see coachBonus). The commissioner places the
+// points on OFF, PIT and DEF in the Offseason.
 const DEV_LUCK = { none: 0, small: 3, normal: 5, big: 8 };
-const FINISH_BONUS = { 'National champion': 4.5, 'National runner-up': 3.5, 'National Championships': 3, 'Super Regional': 2, 'Regional champion': 2, 'NCAA Regional': 1.5 };
+const FINISH_BONUS = { 'National champion': 4.5, 'National runner-up': 3.5, "National Championships": 3, 'Super Regional': 2, 'Regional champion': 2, 'NCAA Regional': 1.5 };
 export const RATING_KEYS = ['off', 'pit', 'def'];
 export function devPoints(team, season, r, level = 'normal', avgO = 70) {
   if (level === 'none') return 0;
@@ -274,7 +278,7 @@ export function devPoints(team, season, r, level = 'normal', avgO = 70) {
   return clamp(Math.round(pts), -15, 15);
 }
 // ---------- coaches and development ----------
-// Every coach's career in the dynasty: record, seasons, NCAA and MCWS trips, titles.
+// Every coach's career in the dynasty: record, seasons, NCAA and National Championship trips, titles.
 export function coachResumes(league) {
   const out = {};
   for (const y of Object.keys(league.seasons).map(Number).sort((a, b) => a - b)) {
@@ -291,7 +295,7 @@ export function coachResumes(league) {
   return out;
 }
 // Prestige, 0-100 (50 = an average head coach): winning percentage, how often
-// his teams make the NCAA tournament, MCWS trips and national titles. A short
+// his teams make the NCAA tournament, National Championship trips and national titles. A short
 // career counts for less, so a coach with one great season isn't an "Elite"
 // name yet. A coach with no seasons in the dynasty is a little below average.
 export function coachPrestige(res) {
@@ -311,7 +315,7 @@ export function coachBonus(prestige, isNew) {
 
 // Program prestige, 0-100 (50 = an average program): how good a school has
 // been lately. Each past season counts its winning percentage, NCAA bid,
-// MCWS trip, national title and final poll rank, and older seasons fade
+// National Championship trip, national title and final poll rank, and older seasons fade
 // (each year back counts 75% as much). A school with little history leans
 // on its current talent, so a powerhouse starts out looking like one.
 export const PRESTIGE_FADE = 0.75;
@@ -349,7 +353,7 @@ export const programLabel = p => (p >= 80 ? 'Blue blood' : p >= 65 ? 'Power' : p
 // luck still bring most hot teams back.
 export const programBonus = p => Math.round((p - 50) / 13);
 
-// A new coach's first year is a roll: most hires land near what his prestige
+// A new coach's first year is a roll: most hires land near what their prestige
 // promises, some take off, and some flop. A bigger program magnifies it
 // (more to work with, more pressure). `fit` is the multiplier, fixed for a
 // given school, coach and year so it doesn't change when the page redraws.
@@ -373,7 +377,7 @@ export function syncCoachBonus(league, teams = league.draft?.teams) {
     t.dev.prestige = prog[t.school];
     t.dev.pb = off ? 0 : programBonus(prog[t.school]);
     t.dev.fit = isNew && t.coachId ? hireFit(year, t.school, t.coachId) : null;
-    // A new hire: his prestige x 1.5, times how the fit turns out, a little
+    // A new hire: their prestige x 1.5, times how the fit turns out, a little
     // bigger at a big program. An empty job costs a point (nobody recruiting).
     const amp = 0.8 + prog[t.school] / 250;
     t.dev.cb = off ? 0 : !t.coachId ? -1 : isNew ? Math.round(coachBonus(pr, true) * t.dev.fit * amp) : coachBonus(pr, false);
@@ -514,12 +518,24 @@ export const isRegularWeek = (w, season) => w <= regWeeksOf(season);
 // Bring an older save up to date: no pitching staffs (v2), coaches as
 // people and preseason ratings for in-season movement (v3), season length,
 // midweek format and NCAA tournament format as settings (v4).
+// Every league has an Independent "conference" for teams without one.
+export function ensureIndependent(league) {
+  league.conferences ||= {};
+  league.conferences[INDEPENDENT] ||= { abbr: 'Ind.', color: '#5f6b7a' };
+  delete league.conferences[INDEPENDENT].retired;
+}
+
 export function migrateLeague(league) {
+  ensureIndependent(league);
   sortConferences(league);
   // The championship used to be called the Women's (or Men's) College World Series.
   for (const se of Object.values(league.seasons || {})) {
     if (/College World Series/.test(se.settings?.mcwsName || '')) se.settings.mcwsName = 'National Championships';
   }
+  // Home fields for teams saved before they existed.
+  for (const teams of [...Object.values(league.seasons || {}).map(se => se.teams), ...(league.draft ? [league.draft.teams] : [])]) for (const t of Object.values(teams || {})) fillSite(t);
+  // Regionals and super regionals are named after the host's city.
+  for (const se of Object.values(league.seasons || {})) citySiteNames(se);
   const v = league.schema || 1;
   if (v >= SCHEMA_VERSION) return league;
   if (v < 4) {

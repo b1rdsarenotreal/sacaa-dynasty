@@ -7,9 +7,9 @@
 // season cool it. These are suggestions only: nothing changes until the
 // commissioner fires someone.
 
-import { records, rpi, confStandings, regSeasonChamps } from './standings.js?v=20261028213304';
-import { wsTeams } from './postseason.js?v=20261028213304';
-import { ovr } from './sim.js?v=20261028213304';
+import { records, rpi, confStandings, regSeasonChamps, isIndependent } from './standings.js?v=20261030234602';
+import { wsTeams } from './postseason.js?v=20261030234602';
+import { ovr } from './sim.js?v=20261030234602';
 
 export const HEAT = {
   fire: { label: 'Fire suggested', min: 2.6 },
@@ -28,7 +28,7 @@ function seasonFacts(season, memo) {
   const pre = Object.fromEntries(Object.values(season.teams).map(t => [t.school, ovr(t.base || t)]));
   const vals = Object.values(pre), avg = vals.reduce((a, b) => a + b, 0) / (vals.length || 1);
   const confPlace = {}, regTitle = new Set();
-  for (const c of new Set(Object.values(season.teams).map(t => t.conference))) {
+  for (const c of new Set(Object.values(season.teams).map(t => t.conference).filter(c => !isIndependent(c)))) {
     const st = confStandings(season, c, reg, r);
     st.forEach((x, i) => { confPlace[x.team] = { pos: i + 1, of: st.length }; });
     for (const t of regSeasonChamps(season, c, reg, r)) regTitle.add(t);
@@ -106,7 +106,7 @@ export function hotSeat(league, year = league.currentYear) {
     else if (run.length === 2) { score -= 0.5; cool.push('Second season at the school'); }
     const titleYears = run.filter(s => s.f.champion === t.school).map(s => s.y);
     if (titleYears.length) { score -= 2.2 + (titleYears[0] >= year - 2 ? 1.5 : 0); cool.push(`National title${titleYears.length > 1 ? 's' : ''} (${titleYears.join(', ')})`); }
-    if (now.f.ws.has(t.school) && now.f.champion !== t.school) { score -= 1.6; cool.push(`Reached the ${now.y && league.seasons[now.y].settings?.mcwsName || 'National Championships'}`); }
+    if (now.f.ws.has(t.school) && now.f.champion !== t.school) { score -= 1.6; cool.push(`Reached the ${now.y && league.seasons[now.y].settings?.mcwsName || "National Championships"}`); }
     else if (now.f.field.has(t.school)) { score -= 0.7; cool.push('Made the NCAA tournament'); }
     if (now.f.confT.has(t.school)) { score -= 0.8; cool.push('Won the conference tournament'); }
     if (now.f.regTitle.has(t.school)) { score -= 0.8; cool.push('Won the regular-season title'); }
